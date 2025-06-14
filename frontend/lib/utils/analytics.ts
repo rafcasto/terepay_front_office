@@ -1,4 +1,4 @@
-export const GA_TRACKING_ID = 'G-CLSJSKPFGE';
+export const GA_TRACKING_ID = 'G-9J1WBB45W2';
 // Track page views
 export const pageview = (url?: string) => {
     // Only run on client-side after hydration
