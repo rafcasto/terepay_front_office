@@ -1,23 +1,56 @@
 import { create } from 'zustand';
 
 interface OnboardingData {
+  // Personal Information (Enhanced for NZ)
   fullName?: string;
   dob?: string;
   address?: string;
   email?: string;
+  phoneNumber?: string;
+  nzResidencyStatus?: 'citizen' | 'permanent_resident' | 'temporary_resident' | 'other';
+  taxNumber?: string; // IRD number for NZ
+  
+  // Employment Info
   employer?: string;
   jobTitle?: string;
-  income?: number;
+  monthlyIncome?: number;
+  employmentType?: 'full_time' | 'part_time' | 'self_employed' | 'unemployed' | 'retired';
+  employmentDuration?: string;
+  
+  // Financial Information (Enhanced for responsible lending)
   rent?: number;
   debts?: number;
-  monthlyIncome?:number;
   dependents?: number;
   savings?: number;
   assets?: string;
+  
+  // Enhanced Financial Assessment for CCCFA compliance
+  monthlyExpenses?: number;
+  otherIncome?: number;
+  existingLoans?: number;
+  creditCardDebt?: number;
+  
+  // Loan Request
   loanAmount?: number;
   loanPurpose?: string;
   loanTerm?: string;
+  
+  // NZ Compliance & KYC
   document?: File | null;
+  addressProof?: File | null;
+  incomeProof?: File | null;
+  
+  // AML/KYC Declarations
+  isPoliticallyExposed?: boolean;
+  sourceOfFunds?: string;
+  expectedAccountActivity?: string;
+  
+  // Responsible Lending Declarations
+  understandsTerms?: boolean;
+  canAffordRepayments?: boolean;
+  hasReceivedAdvice?: boolean;
+  
+  // Submission tracking
   submitted: boolean;
 }
 
