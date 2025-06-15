@@ -166,7 +166,7 @@ export default function Step4() {
             </h3>
             <div className="mt-2 text-sm text-blue-700">
               <p>
-                This information helps us comply with New Zealand's Anti-Money Laundering laws and assess your overall financial stability. All information is kept strictly confidential.
+                This information helps us comply with New Zealand&apos;s Anti-Money Laundering laws and assess your overall financial stability. All information is kept strictly confidential.
               </p>
             </div>
           </div>
