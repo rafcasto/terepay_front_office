@@ -5,7 +5,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { apiClient } from '@/lib/firebase/api';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-
+import { useAuthGuard } from '@/lib/hooks/useAuthGuard';
 interface DashboardData {
   message: string;
   user: {
@@ -21,6 +21,7 @@ interface ApiError {
 }
 
 export default function DashboardPage() {
+  useAuthGuard();
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
