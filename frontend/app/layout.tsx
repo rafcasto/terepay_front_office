@@ -9,8 +9,8 @@ import {GA_TRACKING_ID} from '../lib/utils/analytics'
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Firebase Auth App',
-  description: 'Next.js app with Firebase authentication and reCAPTCHA',
+  title: 'TerePay',
+  description: 'Fast & Secure Lending',
 };
 
 export default function RootLayout({
