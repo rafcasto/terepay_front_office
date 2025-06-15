@@ -94,7 +94,7 @@ export type Step4FormData = z.infer<typeof step4Schema>;
 
 // Step 5: Loan Request Schema
 export const step5Schema = z.object({
-  loanAmount: z.number().min(100, 'Minimum loan amount is $100').max(5000, 'Maximum loan amount is $5,000'),
+  loanAmount: z.number().min(100, 'Minimum loan amount is $100').max(2000, 'Maximum loan amount is $2,000'),
   loanPurpose: z.string().min(10, 'Please provide more detail about the loan purpose'),
   loanTerm: z.string().optional(),
   understandsTerms: z.boolean().refine(val => val === true, 'You must acknowledge understanding the loan terms'),

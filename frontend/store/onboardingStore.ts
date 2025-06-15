@@ -59,23 +59,93 @@ interface OnboardingStore {
   setField: (field: keyof OnboardingData, value: any) => void;
   reset: () => void;
   markSubmitted: () => void;
+  loadFromStorage: () => void;
+  saveToStorage: () => void;
 }
 
-export const useOnboardingStore = create<OnboardingStore>((set) => ({
-  data: {
-    submitted: false,
+// Helper function to get current user ID
+const getCurrentUserId = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const authUser = localStorage.getItem('firebase:authUser');
+    if (authUser) {
+      const parsed = JSON.parse(authUser);
+      return parsed?.uid || null;
+    }
+  } catch (error) {
+    console.error('Error getting user ID:', error);
+  }
+  return null;
+};
+
+// Helper function to load data from localStorage
+const loadDataFromStorage = (): OnboardingData => {
+  const uid = getCurrentUserId();
+  if (!uid) return { submitted: false };
+  
+  try {
+    const saved = localStorage.getItem(`onboarding_${uid}`);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { submitted: false, ...parsed };
+    }
+  } catch (error) {
+    console.error('Error loading onboarding data:', error);
+  }
+  return { submitted: false };
+};
+
+// Helper function to save data to localStorage
+const saveDataToStorage = (data: OnboardingData): void => {
+  const uid = getCurrentUserId();
+  if (!uid) return;
+  
+  try {
+    localStorage.setItem(`onboarding_${uid}`, JSON.stringify(data));
+  } catch (error) {
+    console.error('Error saving onboarding data:', error);
+  }
+};
+
+export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
+  data: { submitted: false },
+  
+  setField: (field, value) => {
+    set((state) => {
+      const newData = {
+        ...state.data,
+        [field]: value,
+      };
+      // Auto-save to localStorage whenever data changes
+      saveDataToStorage(newData);
+      return { data: newData };
+    });
   },
-  setField: (field, value) => set((state) => ({
-    data: {
-      ...state.data,
-      [field]: value,
-    },
-  })),
-  reset: () => set({ data: { submitted: false } }),
-  markSubmitted: () => set((state) => ({
-    data: {
-      ...state.data,
-      submitted: true,
-    },
-  })),
+  
+  reset: () => {
+    const resetData = { submitted: false };
+    set({ data: resetData });
+    saveDataToStorage(resetData);
+  },
+  
+  markSubmitted: () => {
+    set((state) => {
+      const newData = {
+        ...state.data,
+        submitted: true,
+      };
+      saveDataToStorage(newData);
+      return { data: newData };
+    });
+  },
+  
+  loadFromStorage: () => {
+    const loadedData = loadDataFromStorage();
+    set({ data: loadedData });
+  },
+  
+  saveToStorage: () => {
+    const { data } = get();
+    saveDataToStorage(data);
+  },
 }));

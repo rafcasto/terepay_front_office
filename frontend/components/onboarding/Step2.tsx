@@ -6,9 +6,13 @@ import { useOnboardingStore } from '@/store/onboardingStore';
 import { step2Schema, Step2FormData } from '@/lib/utils/validators';
 import { Input } from '@/components/ui/Input';
 import { Navigation } from './Navigation';
+import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
 
 export default function Step2() {
   const { data, setField } = useOnboardingStore();
+  
+  // Load saved data on component mount
+  useOnboardingPersistence();
 
   const {
     register,
@@ -56,10 +60,10 @@ export default function Step2() {
             errors.employmentType ? 'border-red-300' : 'border-gray-300'
           }`}
         >
-          <option value="">Select employment type</option>
+          <option value="">Select employment status</option>
           <option value="full_time">Full-time Employee</option>
           <option value="part_time">Part-time Employee</option>
-          <option value="self_employed">Self-employed</option>
+          <option value="self_employed">Self-employed/Contractor</option>
           <option value="unemployed">Unemployed</option>
           <option value="retired">Retired</option>
         </select>
@@ -68,8 +72,11 @@ export default function Step2() {
         )}
       </div>
 
+      {/* Show employment fields if employed */}
       {isEmployed && (
-        <>
+        <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+          <h3 className="text-lg font-medium text-gray-800">Employment Details</h3>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -79,7 +86,7 @@ export default function Step2() {
                 {...register('employer', {
                   onChange: (e) => updateField('employer', e.target.value)
                 })}
-                placeholder="Company name"
+                placeholder="Your employer's name"
                 error={errors.employer?.message}
               />
             </div>
@@ -92,62 +99,66 @@ export default function Step2() {
                 {...register('jobTitle', {
                   onChange: (e) => updateField('jobTitle', e.target.value)
                 })}
-                placeholder="Your position"
+                placeholder="Your position or role"
                 error={errors.jobTitle?.message}
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Employment Duration *
-            </label>
-            <select
-              {...register('employmentDuration', {
-                onChange: (e) => updateField('employmentDuration', e.target.value)
-              })}
-              className={`w-full appearance-none border p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer transition-colors ${
-                errors.employmentDuration ? 'border-red-300' : 'border-gray-300'
-              }`}
-            >
-              <option value="">How long have you been employed here?</option>
-              <option value="less_than_6_months">Less than 6 months</option>
-              <option value="6_months_to_1_year">6 months to 1 year</option>
-              <option value="1_to_2_years">1 to 2 years</option>
-              <option value="2_to_5_years">2 to 5 years</option>
-              <option value="more_than_5_years">More than 5 years</option>
-            </select>
-            {errors.employmentDuration && (
-              <p className="mt-1 text-sm text-red-600">{errors.employmentDuration.message}</p>
-            )}
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Employment Duration *
+              </label>
+              <select
+                {...register('employmentDuration', {
+                  onChange: (e) => updateField('employmentDuration', e.target.value)
+                })}
+                className={`w-full appearance-none border p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer ${
+                  errors.employmentDuration ? 'border-red-300' : 'border-gray-300'
+                }`}
+              >
+                <option value="">Select duration</option>
+                <option value="less_than_3_months">Less than 3 months</option>
+                <option value="3_to_6_months">3-6 months</option>
+                <option value="6_to_12_months">6-12 months</option>
+                <option value="1_to_2_years">1-2 years</option>
+                <option value="more_than_2_years">More than 2 years</option>
+              </select>
+              {errors.employmentDuration && (
+                <p className="mt-1 text-sm text-red-600">{errors.employmentDuration.message}</p>
+              )}
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Monthly Income (before tax) *
-            </label>
-            <Input
-              {...register('monthlyIncome', {
-                onChange: (e) => updateField('monthlyIncome', parseFloat(e.target.value) || 0),
-                valueAsNumber: true
-              })}
-              type="number"
-              placeholder="0.00"
-              min="0"
-              max="50000"
-              step="100"
-              error={errors.monthlyIncome?.message}
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Monthly Income (after tax) *
+              </label>
+              <Input
+                {...register('monthlyIncome', {
+                  onChange: (e) => updateField('monthlyIncome', parseFloat(e.target.value) || 0),
+                  valueAsNumber: true
+                })}
+                type="number"
+                placeholder="0.00"
+                min="0"
+                max="50000"
+                step="50"
+                error={errors.monthlyIncome?.message}
+              />
+              <p className="text-xs text-gray-500 mt-1">Your regular take-home pay</p>
+            </div>
           </div>
-        </>
+        </div>
       )}
 
+      {/* Show other income fields if unemployed/retired */}
       {needsOtherIncome && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-blue-800 mb-3">Income Information Required</h3>
+        <div className="border border-gray-200 rounded-lg p-4">
+          <h3 className="text-lg font-medium text-gray-800 mb-4">Income Source</h3>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Monthly Income (benefits, pension, etc.) *
+              Monthly Income *
             </label>
             <Input
               {...register('otherIncome', {

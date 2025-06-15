@@ -7,11 +7,15 @@ import { step5Schema, Step5FormData } from '@/lib/utils/validators';
 import { Input } from '@/components/ui/Input';
 import { Navigation } from './Navigation';
 import { useEffect, useState } from 'react';
+import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
 
 export default function Step5() {
   const { data, setField } = useOnboardingStore();
   const [loanTerm] = useState(process.env.NEXT_PUBLIC_LOAN_TERM || '8 weeks');
   const [interestRate] = useState(process.env.NEXT_PUBLIC_INTEREST_RATE || '5');
+  
+  // Load saved data on component mount
+  useOnboardingPersistence();
 
   const {
     register,
@@ -42,7 +46,7 @@ export default function Step5() {
     setValue(field, value);
   };
 
-  // Calculate repayment amounts
+  // Calculate repayment amounts - UPDATED FOR FORTNIGHTLY PAYMENTS
   const loanAmount = watch('loanAmount') || 0;
   const calculateRepayment = (amount: number) => {
     if (!amount) return 0;
@@ -53,13 +57,13 @@ export default function Step5() {
   };
 
   const totalRepayment = calculateRepayment(loanAmount);
-  const weeklyRepayment = loanAmount ? totalRepayment / 8 : 0;
+  const fortnightlyRepayment = loanAmount ? totalRepayment / 4 : 0; // 4 fortnightly payments instead of 8 weekly
 
-  // Affordability check
+  // Affordability check - UPDATED FOR FORTNIGHTLY PAYMENTS
   const totalIncome = (data.monthlyIncome || 0) + (data.otherIncome || 0);
   const totalExpenses = (data.rent || 0) + (data.monthlyExpenses || 0);
   const disposableIncome = totalIncome - totalExpenses;
-  const monthlyRepayment = weeklyRepayment * 4.33; // Average weeks per month
+  const monthlyRepayment = fortnightlyRepayment * 2.17; // 2.17 fortnights per month (26 fortnights / 12 months)
   const repaymentToIncomeRatio = disposableIncome > 0 ? (monthlyRepayment / disposableIncome) * 100 : 0;
   const isAffordable = repaymentToIncomeRatio <= 30;
 
@@ -117,7 +121,7 @@ export default function Step5() {
           type="number"
           placeholder="0.00"
           min="100"
-          max="5000"
+          max="2000"
           step="50"
           error={errors.loanAmount?.message}
         />
@@ -161,8 +165,8 @@ export default function Step5() {
               <p className="text-xl font-bold text-gray-900">${totalRepayment.toFixed(2)}</p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-600">Weekly Payment</p>
-              <p className="text-xl font-bold text-gray-900">${weeklyRepayment.toFixed(2)}</p>
+              <p className="text-sm text-gray-600">Fortnightly Payment</p>
+              <p className="text-xl font-bold text-gray-900">${fortnightlyRepayment.toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -241,7 +245,7 @@ export default function Step5() {
                 I can afford the repayments *
               </label>
               <p className="text-gray-600">
-                I confirm that I can comfortably make the required weekly repayments without financial hardship.
+                I confirm that I can comfortably make the required fortnightly repayments without financial hardship.
               </p>
               {errors.canAffordRepayments && (
                 <p className="mt-1 text-red-600">{errors.canAffordRepayments.message}</p>
