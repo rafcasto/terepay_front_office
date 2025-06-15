@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { JSX } from 'react';
 import { use } from 'react';
 import Step1 from '@/components/onboarding/Step1';
 import Step2 from '@/components/onboarding/Step2';
