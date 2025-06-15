@@ -1,4 +1,5 @@
-// Updated Navigation.tsx with TerePay branding
+// File: components/onboarding/Navigation.tsx
+// Simple update to your existing Navigation component
 'use client';
 import { useRouter } from 'next/navigation';
 
@@ -6,9 +7,10 @@ interface NavigationProps {
   step: number;
   isFinalStep?: boolean;
   onSubmit?: () => void;
+  isValid?: boolean; // Add this prop to check if current step is valid
 }
 
-export function Navigation({ step, isFinalStep = false, onSubmit }: NavigationProps) {
+export function Navigation({ step, isFinalStep = false, onSubmit, isValid = true }: NavigationProps) {
   const router = useRouter();
 
   const goBack = () => {
@@ -16,7 +18,22 @@ export function Navigation({ step, isFinalStep = false, onSubmit }: NavigationPr
   };
 
   const goNext = () => {
+    // Only allow navigation if current step is valid
+    if (!isValid) {
+      alert('Please complete all required fields before continuing.');
+      return;
+    }
+    
     if (step < 6) router.push(`/onboarding/${step + 1}`);
+  };
+
+  const handleSubmit = () => {
+    if (!isValid) {
+      alert('Please complete all required fields before submitting.');
+      return;
+    }
+    
+    if (onSubmit) onSubmit();
   };
 
   return (
@@ -34,6 +51,15 @@ export function Navigation({ step, isFinalStep = false, onSubmit }: NavigationPr
           ></div>
         </div>
       </div>
+
+      {/* Validation status */}
+      {!isValid && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-600">
+            ⚠️ Please complete all required fields before continuing.
+          </p>
+        </div>
+      )}
 
       {/* Navigation buttons */}
       <div className="flex justify-between items-center">
@@ -55,8 +81,13 @@ export function Navigation({ step, isFinalStep = false, onSubmit }: NavigationPr
         {isFinalStep ? (
           <button
             type="button"
-            onClick={onSubmit}
-            className="inline-flex items-center px-8 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 shadow-lg transition-all duration-200 transform hover:scale-105"
+            onClick={handleSubmit}
+            disabled={!isValid}
+            className={`inline-flex items-center px-8 py-3 border border-transparent text-sm font-medium rounded-lg text-white shadow-lg transition-all duration-200 transform hover:scale-105 ${
+              isValid 
+                ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500' 
+                : 'bg-gray-400 cursor-not-allowed'
+            }`}
           >
             Submit Application
             <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,7 +98,12 @@ export function Navigation({ step, isFinalStep = false, onSubmit }: NavigationPr
           <button
             type="button"
             onClick={goNext}
-            className="inline-flex items-center px-8 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 shadow-lg transition-all duration-200 transform hover:scale-105"
+            disabled={!isValid}
+            className={`inline-flex items-center px-8 py-3 border border-transparent text-sm font-medium rounded-lg text-white shadow-lg transition-all duration-200 transform hover:scale-105 ${
+              isValid 
+                ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500' 
+                : 'bg-gray-400 cursor-not-allowed'
+            }`}
           >
             Continue
             <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

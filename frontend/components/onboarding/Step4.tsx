@@ -1,18 +1,41 @@
-// Updated Step4.tsx - Assets & Financial Position
+// File: components/onboarding/Step4.tsx
 'use client';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useOnboardingStore } from '@/store/onboardingStore';
-import { useAutoSaveOnboarding } from '@/lib/hooks/useAutoSaveOnboarding';
+import { step4Schema, Step4FormData } from '@/lib/utils/validators';
+import { Input } from '@/components/ui/Input';
 import { Navigation } from './Navigation';
 
 export default function Step4() {
   const { data, setField } = useOnboardingStore();
-  useAutoSaveOnboarding();
+
+  const {
+    register,
+    formState: { errors, isValid },
+    setValue
+  } = useForm<Step4FormData>({
+    resolver: zodResolver(step4Schema),
+    defaultValues: {
+      savings: data.savings || undefined,
+      assets: data.assets || '',
+      sourceOfFunds: data.sourceOfFunds as Step4FormData['sourceOfFunds'] || undefined,
+      expectedAccountActivity: data.expectedAccountActivity as Step4FormData['expectedAccountActivity'] || undefined,
+      isPoliticallyExposed: data.isPoliticallyExposed || false,
+    },
+    mode: 'onBlur'
+  });
+
+  const updateField = (field: keyof Step4FormData, value: Step4FormData[typeof field]) => {
+    setField(field, value);
+    setValue(field, value);
+  };
 
   return (
-    <form className="space-y-6">
+    <div className="space-y-6">
       <div className="border-l-4 border-orange-500 pl-4">
-        <h2 className="text-xl font-bold mb-2 text-gray-800">Assets & Savings</h2>
-        <p className="text-sm text-gray-600 mb-4">Information about your assets helps us understand your overall financial position.</p>
+        <h2 className="text-xl font-bold mb-2 text-gray-800">Assets & Financial Profile</h2>
+        <p className="text-sm text-gray-600 mb-4">Information about your assets and financial profile helps us understand your overall financial position.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -20,113 +43,136 @@ export default function Step4() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Total Savings & Investments
           </label>
-          <div className="relative">
-            <span className="absolute left-3 top-3 text-gray-500">$</span>
-            <input
-              type="number"
-              placeholder="0.00"
-              value={data.savings || ''}
-              onChange={(e) => setField('savings', parseFloat(e.target.value))}
-              className="w-full border border-gray-300 p-3 pl-8 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            />
-          </div>
-          <p className="text-xs text-gray-500 mt-1">Bank accounts, KiwiSaver, shares, bonds</p>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Other Assets Description
-          </label>
-          <textarea
-            placeholder="Property, vehicles, valuable items..."
-            value={data.assets || ''}
-            onChange={(e) => setField('assets', e.target.value)}
-            className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            rows={3}
+          <Input
+            {...register('savings', {
+              onChange: (e) => updateField('savings', parseFloat(e.target.value) || undefined),
+              valueAsNumber: true
+            })}
+            type="number"
+            placeholder="0.00"
+            min="0"
+            max="10000000"
+            step="500"
+            error={errors.savings?.message}
           />
+          <p className="text-xs text-gray-500 mt-1">Bank accounts, KiwiSaver, shares, bonds, term deposits</p>
         </div>
-      </div>
-
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-800">Source of Funds Declaration</h3>
-        <p className="text-sm text-gray-600">For AML compliance, please describe the source of funds for this loan application and your general financial activities.</p>
         
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Primary Source of Income/Wealth *
+            Estimated Value of Assets
           </label>
-          <div className="relative">
-            <select
-              value={data.sourceOfFunds || ''}
-              onChange={(e) => setField('sourceOfFunds', e.target.value)}
-              className="w-full appearance-none border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer hover:border-gray-400 transition-colors"
-              required
-            >
-              <option value="">Select source</option>
-              <option value="employment">Employment/Salary</option>
-              <option value="business">Business/Self-employment</option>
-              <option value="investments">Investments/Dividends</option>
-              <option value="benefits">Government Benefits</option>
-              <option value="family">Family Support</option>
-              <option value="savings">Existing Savings</option>
-              <option value="other">Other (please specify below)</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Expected Account Activity *
-          </label>
-          <div className="relative">
-            <select
-              value={data.expectedAccountActivity || ''}
-              onChange={(e) => setField('expectedAccountActivity', e.target.value)}
-              className="w-full appearance-none border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer hover:border-gray-400 transition-colors"
-              required
-            >
-              <option value="">Select expected activity</option>
-              <option value="low">Low (occasional transactions)</option>
-              <option value="medium">Medium (regular monthly activity)</option>
-              <option value="high">High (frequent transactions)</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
+          <Input
+            {...register('assets', {
+              onChange: (e) => updateField('assets', e.target.value)
+            })}
+            placeholder="Car, property, valuables, etc."
+            error={errors.assets?.message}
+          />
+          <p className="text-xs text-gray-500 mt-1">Approximate total value of major assets you own</p>
         </div>
       </div>
 
-      <div className="space-y-3">
+      {/* AML/KYC Compliance Section */}
+      <div className="border-t border-gray-200 pt-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Anti-Money Laundering Information</h3>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Primary Source of Funds *
+          </label>
+          <select
+            {...register('sourceOfFunds', {
+              onChange: (e) => updateField('sourceOfFunds', e.target.value)
+            })}
+            className={`w-full appearance-none border p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer transition-colors ${
+              errors.sourceOfFunds ? 'border-red-300' : 'border-gray-300'
+            }`}
+          >
+            <option value="">Select your main source of income</option>
+            <option value="employment">Employment Income</option>
+            <option value="business">Business Income</option>
+            <option value="investments">Investment Returns</option>
+            <option value="benefits">Government Benefits</option>
+            <option value="pension">Pension/Retirement Funds</option>
+            <option value="family">Family Support</option>
+            <option value="savings">Personal Savings</option>
+            <option value="other">Other</option>
+          </select>
+          {errors.sourceOfFunds && (
+            <p className="mt-1 text-sm text-red-600">{errors.sourceOfFunds.message}</p>
+          )}
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Expected Account Activity Level *
+          </label>
+          <select
+            {...register('expectedAccountActivity', {
+              onChange: (e) => updateField('expectedAccountActivity', e.target.value)
+            })}
+            className={`w-full appearance-none border p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer transition-colors ${
+              errors.expectedAccountActivity ? 'border-red-300' : 'border-gray-300'
+            }`}
+          >
+            <option value="">Select expected transaction frequency</option>
+            <option value="low">Low (occasional transactions)</option>
+            <option value="medium">Medium (regular monthly activity)</option>
+            <option value="high">High (frequent transactions)</option>
+          </select>
+          {errors.expectedAccountActivity && (
+            <p className="mt-1 text-sm text-red-600">{errors.expectedAccountActivity.message}</p>
+          )}
+        </div>
+      </div>
+
+      {/* PEP Declaration */}
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-yellow-800 mb-3">Politically Exposed Person (PEP) Declaration</h3>
         <div className="flex items-start">
           <div className="flex items-center h-5">
             <input
-              id="pep-declaration"
+              {...register('isPoliticallyExposed', {
+                onChange: (e) => updateField('isPoliticallyExposed', e.target.checked)
+              })}
               type="checkbox"
-              checked={data.isPoliticallyExposed || false}
-              onChange={(e) => setField('isPoliticallyExposed', e.target.checked)}
               className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
             />
           </div>
           <div className="ml-3 text-sm">
-            <label htmlFor="pep-declaration" className="font-medium text-gray-700">
+            <label className="font-medium text-yellow-700">
               I am a Politically Exposed Person (PEP)
             </label>
-            <p className="text-gray-600">
+            <p className="text-yellow-600 mt-1">
               This includes senior political figures, their immediate family members, and close associates, or senior executives of state-owned enterprises.
             </p>
           </div>
         </div>
       </div>
 
-      <Navigation step={4} />
-    </form>
+      {/* Information notice */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-blue-800">
+              Why We Collect This Information
+            </h3>
+            <div className="mt-2 text-sm text-blue-700">
+              <p>
+                This information helps us comply with New Zealand&apos;s Anti-Money Laundering and Countering Financing of Terrorism Act 2009. It allows us to better understand your financial profile and provide appropriate services.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Navigation step={4} isValid={isValid} />
+    </div>
   );
 }
