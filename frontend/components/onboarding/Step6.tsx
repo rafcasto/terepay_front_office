@@ -1,34 +1,41 @@
-// Updated Step6.tsx - Document Upload with NZ Requirements
 'use client';
 import { useRouter } from 'next/navigation';
 import { useOnboardingStore } from '@/store/onboardingStore';
-import { useState } from 'react';
-import { useAutoSaveOnboarding } from '@/lib/hooks/useAutoSaveOnboarding';
-import { Navigation } from './Navigation';
+import { useState, useEffect } from 'react';
+import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
+
 
 export default function Step6() {
   const router = useRouter();
   const { data, setField, markSubmitted } = useOnboardingStore();
-  const [identityDoc, setIdentityDoc] = useState<File | null>(data.document || null);
-  const [addressProof, setAddressProof] = useState<File | null>(data.addressProof || null);
-  const [incomeProof, setIncomeProof] = useState<File | null>(data.incomeProof || null);
+  const [identityDoc, setIdentityDoc] = useState<File | undefined>(undefined);
+  const [addressProof, setAddressProof] = useState<File | undefined>(undefined);
+  const [incomeProof, setIncomeProof] = useState<File | undefined>(undefined);
 
-  useAutoSaveOnboarding();
+  // Use consistent persistence hook
+  useOnboardingPersistence();
+
+  // Initialize file states from store on mount
+  useEffect(() => {
+    if (data.document) setIdentityDoc(data.document);
+    if (data.addressProof) setAddressProof(data.addressProof);
+    if (data.incomeProof) setIncomeProof(data.incomeProof);
+  }, [data.document, data.addressProof, data.incomeProof]);
 
   const handleIdentityUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
+    const file = e.target.files?.[0] || undefined;
     setIdentityDoc(file);
     setField('document', file);
   };
 
   const handleAddressUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
+    const file = e.target.files?.[0] || undefined;
     setAddressProof(file);
     setField('addressProof', file);
   };
 
   const handleIncomeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
+    const file = e.target.files?.[0] || undefined;
     setIncomeProof(file);
     setField('incomeProof', file);
   };
@@ -45,165 +52,200 @@ export default function Step6() {
       return;
     }
 
-    markSubmitted();
-    const uid = JSON.parse(localStorage.getItem('firebase:authUser') || '{}')?.uid;
-
-    if (uid) {
-      localStorage.setItem(
-        `onboarding_${uid}`,
-        JSON.stringify({ ...data, submitted: true })
-      );
+    if (!incomeProof) {
+      alert('Please upload proof of income before proceeding.');
+      return;
     }
+
+    // Mark as submitted and redirect
+    markSubmitted();
     router.push('/onboarding/confirmation');
   };
 
+  const isValid = identityDoc && addressProof && incomeProof;
+
   return (
-    <form className="space-y-6">
+    <div className="space-y-6">
       <div className="border-l-4 border-orange-500 pl-4">
-        <h2 className="text-xl font-bold mb-2 text-gray-800">Document Verification</h2>
-        <p className="text-sm text-gray-600 mb-4">Upload the required documents to verify your identity and financial situation as required by New Zealand law.</p>
+        <h2 className="text-xl font-bold mb-2 text-gray-800">Document Upload</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Upload the required documents to complete your application. All documents must be clear, current, and in English (or accompanied by certified translations).
+        </p>
       </div>
 
       <div className="space-y-6">
         {/* Identity Document */}
-        <div className="border border-gray-200 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">Identity Verification *</h3>
-          <p className="text-sm text-gray-600 mb-3">
-            Upload one of the following: NZ Passport, NZ Driver License, or other government-issued photo ID
+        <div className="border border-gray-300 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">Identity Document *</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Upload a clear photo of your government-issued photo ID (passport, driver&apos;s license, or Kiwi Access Card).
           </p>
           
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-orange-400 transition-colors">
-            <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <div className="mt-4">
-              <label htmlFor="identity-upload" className="cursor-pointer">
-                <span className="mt-2 block text-sm font-medium text-gray-900">
-                  {identityDoc ? identityDoc.name : 'Click to upload ID document'}
-                </span>
-                <input
-                  id="identity-upload"
-                  type="file"
-                  accept="application/pdf,image/*"
-                  onChange={handleIdentityUpload}
-                  className="sr-only"
-                />
-              </label>
-              <p className="mt-1 text-xs text-gray-500">PDF or image up to 10MB</p>
-            </div>
+          <div className="mt-2">
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf"
+              onChange={handleIdentityUpload}
+              className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-lg file:border-0
+                file:text-sm file:font-semibold
+                file:bg-orange-50 file:text-orange-700
+                hover:file:bg-orange-100"
+            />
           </div>
           
           {identityDoc && (
-            <div className="mt-3 flex items-center text-sm text-green-600">
-              <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Uploaded: {identityDoc.name}
+            <div className="mt-2 text-sm text-green-600">
+              ✓ {identityDoc.name} uploaded
             </div>
           )}
+          
+          <div className="mt-2 text-xs text-gray-500">
+            Accepted formats: JPG, PNG, PDF (max 5MB)
+          </div>
         </div>
 
         {/* Address Proof */}
-        <div className="border border-gray-200 rounded-lg p-4">
+        <div className="border border-gray-300 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-3">Proof of Address *</h3>
-          <p className="text-sm text-gray-600 mb-3">
-            Upload a recent utility bill, bank statement, or council rates notice (within last 3 months)
+          <p className="text-sm text-gray-600 mb-4">
+            Upload a recent document showing your current address (utility bill, bank statement, or rates notice - dated within 3 months).
           </p>
           
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-orange-400 transition-colors">
-            <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <div className="mt-4">
-              <label htmlFor="address-upload" className="cursor-pointer">
-                <span className="mt-2 block text-sm font-medium text-gray-900">
-                  {addressProof ? addressProof.name : 'Click to upload address proof'}
-                </span>
-                <input
-                  id="address-upload"
-                  type="file"
-                  accept="application/pdf,image/*"
-                  onChange={handleAddressUpload}
-                  className="sr-only"
-                />
-              </label>
-              <p className="mt-1 text-xs text-gray-500">PDF or image up to 10MB</p>
-            </div>
+          <div className="mt-2">
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf"
+              onChange={handleAddressUpload}
+              className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-lg file:border-0
+                file:text-sm file:font-semibold
+                file:bg-orange-50 file:text-orange-700
+                hover:file:bg-orange-100"
+            />
           </div>
           
           {addressProof && (
-            <div className="mt-3 flex items-center text-sm text-green-600">
-              <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Uploaded: {addressProof.name}
+            <div className="mt-2 text-sm text-green-600">
+              ✓ {addressProof.name} uploaded
             </div>
           )}
+          
+          <div className="mt-2 text-xs text-gray-500">
+            Accepted formats: JPG, PNG, PDF (max 5MB)
+          </div>
         </div>
 
         {/* Income Proof */}
-        <div className="border border-gray-200 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">Proof of Income</h3>
-          <p className="text-sm text-gray-600 mb-3">
-            Upload recent payslips, bank statements, or tax returns (recommended but optional)
+        <div className="border border-gray-300 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">Proof of Income *</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Upload recent payslips, benefit statements, or bank statements showing your income (last 2-3 months).
           </p>
           
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-orange-400 transition-colors">
-            <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <div className="mt-4">
-              <label htmlFor="income-upload" className="cursor-pointer">
-                <span className="mt-2 block text-sm font-medium text-gray-900">
-                  {incomeProof ? incomeProof.name : 'Click to upload income proof (optional)'}
-                </span>
-                <input
-                  id="income-upload"
-                  type="file"
-                  accept="application/pdf,image/*"
-                  onChange={handleIncomeUpload}
-                  className="sr-only"
-                />
-              </label>
-              <p className="mt-1 text-xs text-gray-500">PDF or image up to 10MB</p>
-            </div>
+          <div className="mt-2">
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf"
+              onChange={handleIncomeUpload}
+              className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-lg file:border-0
+                file:text-sm file:font-semibold
+                file:bg-orange-50 file:text-orange-700
+                hover:file:bg-orange-100"
+            />
           </div>
           
           {incomeProof && (
-            <div className="mt-3 flex items-center text-sm text-green-600">
-              <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Uploaded: {incomeProof.name}
+            <div className="mt-2 text-sm text-green-600">
+              ✓ {incomeProof.name} uploaded
             </div>
           )}
+          
+          <div className="mt-2 text-xs text-gray-500">
+            Accepted formats: JPG, PNG, PDF (max 5MB)
+          </div>
         </div>
       </div>
 
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex">
           <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
           </div>
           <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">
-              Document Requirements
+            <h3 className="text-sm font-medium text-blue-800">
+              Document Security
             </h3>
-            <div className="mt-2 text-sm text-red-700">
-              <ul className="list-disc list-inside space-y-1">
-                <li>Documents must be clear and legible</li>
-                <li>ID documents must be current and not expired</li>
-                <li>Address proof must be dated within the last 3 months</li>
-                <li>All documents are securely stored and encrypted</li>
-              </ul>
+            <div className="mt-2 text-sm text-blue-700">
+              <p>
+                Your documents are encrypted and stored securely. We only use them for identity verification and loan assessment as required by New Zealand law.
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      <Navigation step={6} isFinalStep onSubmit={handleSubmit} />
-    </form>
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-800">Final Declarations</h3>
+        
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">
+                Before You Submit
+              </h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p>
+                  Please review all information for accuracy. Once submitted, changes cannot be made to your application. You will receive a confirmation email with next steps.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-sm text-gray-600 space-y-2">
+          <p>By submitting this application, I declare that:</p>
+          <ul className="list-disc list-inside space-y-1 ml-4">
+            <li>All information provided is true, complete, and accurate</li>
+            <li>I understand this is a credit application and will appear on my credit file</li>
+            <li>I consent to credit and identity checks being performed</li>
+            <li>I have read and agree to the Terms and Conditions and Privacy Policy</li>
+            <li>I understand the loan terms and can afford the repayments</li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="flex justify-between pt-6">
+        <button
+          onClick={() => router.push('/onboarding/5')}
+          className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          Back
+        </button>
+        
+        <button
+          onClick={handleSubmit}
+          disabled={!isValid}
+          className={`px-8 py-2 rounded-lg font-semibold transition-colors ${
+            isValid
+              ? 'bg-orange-600 text-white hover:bg-orange-700'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          Submit Application
+        </button>
+      </div>
+    </div>
   );
 }

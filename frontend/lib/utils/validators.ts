@@ -29,7 +29,7 @@ export const step1Schema = z.object({
   address: z.string().min(10, 'Please provide a complete address'),
   email: z.string().email('Please enter a valid email address'),
   phoneNumber: z.string().min(1, 'Mobile number is required'),
-  nzResidencyStatus: z.enum(['citizen', 'permanent_resident', 'temporary_resident', 'other'], {
+  nzResidencyStatus: z.enum(['citizen', 'permanent_resident', 'temporary_resident', 'work_visa','student_visa'], {
     required_error: 'Residency status is required'
   }),
   taxNumber: z.string().optional(),
@@ -37,7 +37,7 @@ export const step1Schema = z.object({
 
 export type Step1FormData = z.infer<typeof step1Schema>;
 
-// Step 2: Employment & Income Schema
+// Fixed Step 2: Employment & Income Schema
 export const step2Schema = z.object({
   employmentType: z.enum(['full_time', 'part_time', 'self_employed', 'unemployed', 'retired'], {
     required_error: 'Employment type is required'
@@ -47,19 +47,52 @@ export const step2Schema = z.object({
   employmentDuration: z.string().optional(),
   monthlyIncome: z.number().min(0, 'Income cannot be negative').optional(),
   otherIncome: z.number().min(0, 'Income cannot be negative').optional(),
-}).refine((data) => {
-  // If employed, require employment details
+}).superRefine((data, ctx) => {
+  // If employed (not unemployed or retired), require employment details
   if (data.employmentType && !['unemployed', 'retired'].includes(data.employmentType)) {
-    return data.employer && data.jobTitle && data.employmentDuration && data.monthlyIncome && data.monthlyIncome > 0;
+    if (!data.employer || data.employer.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Employer name is required for employed individuals",
+        path: ["employer"]
+      });
+    }
+    
+    if (!data.jobTitle || data.jobTitle.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Job title is required for employed individuals",
+        path: ["jobTitle"]
+      });
+    }
+    
+    if (!data.employmentDuration || data.employmentDuration.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Employment duration is required for employed individuals",
+        path: ["employmentDuration"]
+      });
+    }
+    
+    if (!data.monthlyIncome || data.monthlyIncome <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Monthly income is required for employed individuals",
+        path: ["monthlyIncome"]
+      });
+    }
   }
-  // If unemployed or retired, require other income
-  if (['unemployed', 'retired'].includes(data.employmentType)) {
-    return data.otherIncome && data.otherIncome > 0;
+  
+  // If unemployed or retired, require other income field to be filled (can be 0)
+  if (data.employmentType && ['unemployed', 'retired'].includes(data.employmentType)) {
+    if (data.otherIncome === undefined || data.otherIncome === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Please enter your monthly income amount (enter 0 if no income)`,
+        path: ["otherIncome"]
+      });
+    }
   }
-  return true;
-}, {
-  message: "Please complete all required employment fields",
-  path: ["employmentType"]
 });
 
 export type Step2FormData = z.infer<typeof step2Schema>;

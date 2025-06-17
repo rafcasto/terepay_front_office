@@ -1,4 +1,3 @@
-// File: components/onboarding/Step4.tsx
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -73,36 +72,36 @@ export default function Step4() {
             placeholder="Car, property, valuables, etc."
             error={errors.assets?.message}
           />
-          <p className="text-xs text-gray-500 mt-1">Brief description of major assets and their estimated value</p>
+          <p className="text-xs text-gray-500 mt-1">Describe your major assets and their approximate value</p>
         </div>
       </div>
 
-      {/* AML/KYC Compliance Section */}
-      <div className="border border-gray-200 rounded-lg p-4 space-y-4">
-        <h3 className="text-lg font-medium text-gray-800">Compliance Information</h3>
-        <p className="text-sm text-gray-600">Required under Anti-Money Laundering and Countering Financing of Terrorism Act 2009</p>
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-800">AML/KYC Information</h3>
+        <p className="text-sm text-gray-600">The following information is required under New Zealand&apos;s Anti-Money Laundering and Countering Financing of Terrorism Act.</p>
         
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Primary Source of Funds *
+            Source of Funds *
           </label>
           <select
             {...register('sourceOfFunds', {
               onChange: (e) => updateField('sourceOfFunds', e.target.value)
             })}
-            className={`w-full appearance-none border p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer ${
+            className={`w-full appearance-none border p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer transition-colors ${
               errors.sourceOfFunds ? 'border-red-300' : 'border-gray-300'
             }`}
           >
             <option value="">Select source of funds</option>
-            <option value="employment">Employment/Salary</option>
+            <option value="employment">Employment Income</option>
             <option value="business">Business Income</option>
             <option value="investments">Investment Returns</option>
-            <option value="benefits">Government Benefits</option>
-            <option value="pension">Pension/Retirement Funds</option>
-            <option value="family">Family Support</option>
             <option value="savings">Personal Savings</option>
-            <option value="other">Other</option>
+            <option value="inheritance">Inheritance</option>
+            <option value="gift">Gift from Family</option>
+            <option value="pension">Pension/Superannuation</option>
+            <option value="benefits">Government Benefits</option>
+            <option value="other">Other (will require explanation)</option>
           </select>
           {errors.sourceOfFunds && (
             <p className="mt-1 text-sm text-red-600">{errors.sourceOfFunds.message}</p>
@@ -117,37 +116,36 @@ export default function Step4() {
             {...register('expectedAccountActivity', {
               onChange: (e) => updateField('expectedAccountActivity', e.target.value)
             })}
-            className={`w-full appearance-none border p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer ${
+            className={`w-full appearance-none border p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer transition-colors ${
               errors.expectedAccountActivity ? 'border-red-300' : 'border-gray-300'
             }`}
           >
-            <option value="">Select expected activity level</option>
-            <option value="low">Low (occasional transactions)</option>
-            <option value="medium">Medium (regular transactions)</option>
-            <option value="high">High (frequent transactions)</option>
+            <option value="">Select expected activity</option>
+            <option value="low">Low (occasional small transactions)</option>
+            <option value="medium">Medium (regular moderate transactions)</option>
+            <option value="high">High (frequent or large transactions)</option>
           </select>
           {errors.expectedAccountActivity && (
             <p className="mt-1 text-sm text-red-600">{errors.expectedAccountActivity.message}</p>
           )}
-          <p className="text-xs text-gray-500 mt-1">How often do you expect to use financial services?</p>
         </div>
 
-        <div className="flex items-start space-x-3">
+        <div className="flex items-start">
           <div className="flex items-center h-5">
             <input
               {...register('isPoliticallyExposed', {
                 onChange: (e) => updateField('isPoliticallyExposed', e.target.checked)
               })}
               type="checkbox"
-              className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+              className="focus:ring-orange-500 h-4 w-4 text-orange-600 border-gray-300 rounded"
             />
           </div>
-          <div className="text-sm">
+          <div className="ml-3 text-sm">
             <label className="font-medium text-gray-700">
               I am a Politically Exposed Person (PEP)
             </label>
-            <p className="text-gray-600 mt-1">
-              This includes current or former senior political figures, their immediate family members, or close associates. Examples include MPs, mayors, judges, or senior government officials.
+            <p className="text-gray-500">
+              This includes politicians, senior government officials, judicial officers, military officers, or immediate family members of such persons.
             </p>
           </div>
         </div>
@@ -166,7 +164,7 @@ export default function Step4() {
             </h3>
             <div className="mt-2 text-sm text-blue-700">
               <p>
-                This information helps us comply with New Zealand&apos;s Anti-Money Laundering laws and assess your overall financial stability. All information is kept strictly confidential.
+                This information helps us comply with New Zealand&apos;s financial regulations and ensures we can provide you with appropriate services while meeting our legal obligations.
               </p>
             </div>
           </div>

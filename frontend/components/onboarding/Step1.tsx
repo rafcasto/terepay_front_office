@@ -1,4 +1,3 @@
-// File: components/onboarding/Step1.tsx
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,7 +10,7 @@ import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
 export default function Step1() {
   const { data, setField } = useOnboardingStore();
   
-  // Load saved data on component mount
+  // Load saved data on component mount (now mostly a safety check)
   useOnboardingPersistence();
 
   const {
@@ -134,11 +133,12 @@ export default function Step1() {
               errors.nzResidencyStatus ? 'border-red-300' : 'border-gray-300'
             }`}
           >
-            <option value="">Select residency status</option>
+            <option value="">Select your status</option>
             <option value="citizen">New Zealand Citizen</option>
             <option value="permanent_resident">Permanent Resident</option>
             <option value="temporary_resident">Temporary Resident</option>
-            <option value="other">Other</option>
+            <option value="work_visa">Work Visa Holder</option>
+            <option value="student_visa">Student Visa Holder</option>
           </select>
           {errors.nzResidencyStatus && (
             <p className="mt-1 text-sm text-red-600">{errors.nzResidencyStatus.message}</p>
@@ -147,7 +147,7 @@ export default function Step1() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            IRD Number (optional)
+            IRD Number
           </label>
           <Input
             {...register('taxNumber', {
@@ -156,29 +156,7 @@ export default function Step1() {
             placeholder="123-456-789"
             error={errors.taxNumber?.message}
           />
-          <p className="text-xs text-gray-500 mt-1">
-            Required for loan approval if you have one
-          </p>
-        </div>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800">
-              Data Protection
-            </h3>
-            <div className="mt-2 text-sm text-blue-700">
-              <p>
-                Your personal information is protected under the Privacy Act 2020 and will only be used for loan assessment and compliance purposes.
-              </p>
-            </div>
-          </div>
+          <p className="text-xs text-gray-500 mt-1">Required for New Zealand tax residents</p>
         </div>
       </div>
 

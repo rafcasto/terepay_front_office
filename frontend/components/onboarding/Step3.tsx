@@ -1,4 +1,3 @@
-// File: components/onboarding/Step3.tsx
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,9 +20,9 @@ export default function Step3() {
   } = useForm<Step3FormData>({
     resolver: zodResolver(step3Schema),
     defaultValues: {
-      rent: data.rent || 0,
-      monthlyExpenses: data.monthlyExpenses || 0,
-      debts: data.debts || 0,
+      rent: data.rent || undefined,
+      monthlyExpenses: data.monthlyExpenses || undefined,
+      debts: data.debts || undefined,
       dependents: data.dependents || 0,
     },
     mode: 'onBlur'

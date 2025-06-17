@@ -1,32 +1,33 @@
 import { create } from 'zustand';
+import { safeSetItem } from '@/lib/utils/storageUtils';
 
 interface OnboardingData {
-  // Personal Information (Enhanced for NZ)
+  // Personal Information
   fullName?: string;
   dob?: string;
   address?: string;
   email?: string;
   phoneNumber?: string;
-  nzResidencyStatus?: 'citizen' | 'permanent_resident' | 'temporary_resident' | 'other';
-  taxNumber?: string; // IRD number for NZ
+  nzResidencyStatus?: 'citizen' | 'permanent_resident' | 'temporary_resident' | 'work_visa' | 'student_visa';
+  taxNumber?: string;
   
-  // Employment Info
+  // Employment & Income
+  employmentType?: 'full_time' | 'part_time' | 'self_employed' | 'contract' | 'casual' | 'unemployed' | 'retired' | 'student';
   employer?: string;
   jobTitle?: string;
-  monthlyIncome?: number;
-  employmentType?: 'full_time' | 'part_time' | 'self_employed' | 'unemployed' | 'retired';
   employmentDuration?: string;
+  monthlyIncome?: number;
+  otherIncome?: number;
   
-  // Financial Information (Enhanced for responsible lending)
+  // Expenses & Obligations
   rent?: number;
+  monthlyExpenses?: number;
   debts?: number;
   dependents?: number;
+  
+  // Assets & Financial Profile
   savings?: number;
   assets?: string;
-  
-  // Enhanced Financial Assessment for CCCFA compliance
-  monthlyExpenses?: number;
-  otherIncome?: number;
   existingLoans?: number;
   creditCardDebt?: number;
   
@@ -35,10 +36,10 @@ interface OnboardingData {
   loanPurpose?: string;
   loanTerm?: string;
   
-  // NZ Compliance & KYC
-  document?: File | null;
-  addressProof?: File | null;
-  incomeProof?: File | null;
+  // NZ Compliance & KYC (Files stored in memory only)
+  document?: File | undefined;
+  addressProof?: File | undefined;
+  incomeProof?: File | undefined;
   
   // AML/KYC Declarations
   isPoliticallyExposed?: boolean;
@@ -56,6 +57,7 @@ interface OnboardingData {
 
 interface OnboardingStore {
   data: OnboardingData;
+  isLoaded: boolean;
   setField: (field: keyof OnboardingData, value: any) => void;
   reset: () => void;
   markSubmitted: () => void;
@@ -64,22 +66,24 @@ interface OnboardingStore {
 }
 
 // Helper function to get current user ID
-const getCurrentUserId = (): string | null => {
-  if (typeof window === 'undefined') return null;
+const getCurrentUserId = (): string | undefined => {
+  if (typeof window === 'undefined') return undefined;
   try {
     const authUser = localStorage.getItem('firebase:authUser');
     if (authUser) {
       const parsed = JSON.parse(authUser);
-      return parsed?.uid || null;
+      return parsed?.uid || undefined;
     }
   } catch (error) {
     console.error('Error getting user ID:', error);
   }
-  return null;
+  return undefined;
 };
 
 // Helper function to load data from localStorage
 const loadDataFromStorage = (): OnboardingData => {
+  if (typeof window === 'undefined') return { submitted: false };
+  
   const uid = getCurrentUserId();
   if (!uid) return { submitted: false };
   
@@ -97,18 +101,33 @@ const loadDataFromStorage = (): OnboardingData => {
 
 // Helper function to save data to localStorage
 const saveDataToStorage = (data: OnboardingData): void => {
+  if (typeof window === 'undefined') return;
+  
   const uid = getCurrentUserId();
   if (!uid) return;
   
   try {
-    localStorage.setItem(`onboarding_${uid}`, JSON.stringify(data));
+    // Create a copy of data without File objects for localStorage
+    const dataToSave = { ...data };
+    
+    // Remove File objects as they can't be serialized and cause quota issues
+    delete dataToSave.document;
+    delete dataToSave.addressProof;
+    delete dataToSave.incomeProof;
+    
+    const success = safeSetItem(`onboarding_${uid}`, JSON.stringify(dataToSave));
+    
+    if (!success) {
+      console.warn('Failed to save onboarding data to localStorage');
+    }
   } catch (error) {
     console.error('Error saving onboarding data:', error);
   }
 };
 
 export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
-  data: { submitted: false },
+  data: loadDataFromStorage(), // Load data immediately on store initialization
+  isLoaded: true, // Mark as loaded since we load synchronously
   
   setField: (field, value) => {
     set((state) => {
@@ -116,15 +135,20 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
         ...state.data,
         [field]: value,
       };
-      // Auto-save to localStorage whenever data changes
-      saveDataToStorage(newData);
+      
+      // Only auto-save non-File fields to localStorage
+      // File objects will be handled in memory only
+      if (!(value instanceof File)) {
+        saveDataToStorage(newData);
+      }
+      
       return { data: newData };
     });
   },
   
   reset: () => {
     const resetData = { submitted: false };
-    set({ data: resetData });
+    set({ data: resetData, isLoaded: true });
     saveDataToStorage(resetData);
   },
   
@@ -141,7 +165,7 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
   
   loadFromStorage: () => {
     const loadedData = loadDataFromStorage();
-    set({ data: loadedData });
+    set({ data: loadedData, isLoaded: true });
   },
   
   saveToStorage: () => {
