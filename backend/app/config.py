@@ -13,6 +13,17 @@ class Config:
     FIREBASE_SERVICE_ACCOUNT_BASE64 = os.getenv('FIREBASE_SERVICE_ACCOUNT_BASE64')
     FIREBASE_SERVICE_ACCOUNT_FILE = os.getenv('FIREBASE_SERVICE_ACCOUNT_FILE', 'serviceAccountKey.json')
     
+    # Database Configuration
+    DATABASE_URL = os.getenv('DATABASE_URL')
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+        'pool_timeout': 20,
+        'max_overflow': 0,
+    }
+    
     # CORS Configuration
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*').split(',')
 
