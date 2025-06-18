@@ -1,16 +1,21 @@
-// File: components/onboarding/Navigation.tsx
-// Clean version with proper TypeScript handling
 'use client';
 import { useState } from 'react';
 
 interface NavigationProps {
   step: number;
   isFinalStep?: boolean;
-  onSubmit?: () => void;
+  onSubmit?: () => void | Promise<void>;
   isValid?: boolean;
+  isLoading?: boolean;
 }
 
-export function Navigation({ step, isFinalStep = false, onSubmit, isValid = true }: NavigationProps) {
+export function Navigation({ 
+  step, 
+  isFinalStep = false, 
+  onSubmit, 
+  isValid = true,
+  isLoading = false
+}: NavigationProps) {
   const [isNavigating, setIsNavigating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -21,11 +26,11 @@ export function Navigation({ step, isFinalStep = false, onSubmit, isValid = true
     }
   };
 
-  const goBack = async (e: React.MouseEvent) => {
+  const handleBack = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (isNavigating || step <= 1) return;
+    if (isNavigating || isSubmitting || isLoading || step <= 1) return;
     
     setIsNavigating(true);
     try {
@@ -35,33 +40,35 @@ export function Navigation({ step, isFinalStep = false, onSubmit, isValid = true
     }
   };
 
-  const goNext = async (e: React.MouseEvent) => {
+  const handleNext = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (isNavigating || !isValid || step >= 6) return;
+    if (isNavigating || isSubmitting || isLoading || !isValid) return;
     
-    setIsNavigating(true);
-    try {
-      navigate(`/onboarding/${step + 1}`);
-    } finally {
-      setTimeout(() => setIsNavigating(false), 500);
+    if (onSubmit) {
+      setIsSubmitting(true);
+      try {
+        await onSubmit();
+        // Navigation will happen in the onSubmit handler if successful
+      } catch (error) {
+        console.error('Submit error:', error);
+        // Don't navigate if there's an error
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else if (!isFinalStep) {
+      // Default navigation behavior if no onSubmit provided
+      setIsNavigating(true);
+      try {
+        navigate(`/onboarding/${step + 1}`);
+      } finally {
+        setTimeout(() => setIsNavigating(false), 500);
+      }
     }
   };
 
-  const handleSubmit = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (isSubmitting || !isValid || !onSubmit) return;
-    
-    setIsSubmitting(true);
-    try {
-      await onSubmit();
-    } finally {
-      setTimeout(() => setIsSubmitting(false), 1000);
-    }
-  };
+  const isAnyLoading = isLoading || isSubmitting || isNavigating;
 
   return (
     <div className="border-t border-gray-200 pt-6 mt-8">
@@ -93,19 +100,16 @@ export function Navigation({ step, isFinalStep = false, onSubmit, isValid = true
         {step > 1 ? (
           <button
             type="button"
-            onClick={goBack}
-            disabled={isNavigating}
+            onClick={handleBack}
+            disabled={isAnyLoading}
             className={`inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-lg transition-colors ${
-              isNavigating 
+              isAnyLoading 
                 ? 'text-gray-400 bg-gray-100 cursor-not-allowed' 
                 : 'text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500'
             }`}
           >
             {isNavigating ? (
-              <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
+              <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-gray-500 border-t-transparent"></div>
             ) : (
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -120,20 +124,17 @@ export function Navigation({ step, isFinalStep = false, onSubmit, isValid = true
         {isFinalStep ? (
           <button
             type="button"
-            onClick={handleSubmit}
-            disabled={!isValid || isSubmitting}
+            onClick={handleNext}
+            disabled={!isValid || isAnyLoading}
             className={`inline-flex items-center px-8 py-3 border border-transparent text-sm font-medium rounded-lg text-white shadow-lg transition-all duration-200 ${
-              isValid && !isSubmitting
+              isValid && !isAnyLoading
                 ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transform hover:scale-105' 
                 : 'bg-gray-400 cursor-not-allowed'
             }`}
           >
             {isSubmitting ? (
               <>
-                <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+                <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                 Submitting...
               </>
             ) : (
@@ -148,20 +149,22 @@ export function Navigation({ step, isFinalStep = false, onSubmit, isValid = true
         ) : (
           <button
             type="button"
-            onClick={goNext}
-            disabled={!isValid || isNavigating}
+            onClick={handleNext}
+            disabled={!isValid || isAnyLoading}
             className={`inline-flex items-center px-8 py-3 border border-transparent text-sm font-medium rounded-lg text-white shadow-lg transition-all duration-200 ${
-              isValid && !isNavigating
+              isValid && !isAnyLoading
                 ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transform hover:scale-105' 
                 : 'bg-gray-400 cursor-not-allowed'
             }`}
           >
-            {isNavigating ? (
+            {isSubmitting ? (
               <>
-                <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+                <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                Saving...
+              </>
+            ) : isNavigating ? (
+              <>
+                <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                 Loading...
               </>
             ) : (

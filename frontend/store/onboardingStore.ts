@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { safeSetItem } from '@/lib/utils/storageUtils';
+import { OnboardingService, Step1Data } from '@/lib/services/onboardingService';
 
 interface OnboardingData {
-  // Personal Information
+  // Personal Information (Step 1)
   fullName?: string;
   dob?: string;
   address?: string;
@@ -11,7 +12,7 @@ interface OnboardingData {
   nzResidencyStatus?: 'citizen' | 'permanent_resident' | 'temporary_resident' | 'work_visa' | 'student_visa';
   taxNumber?: string;
   
-  // Employment & Income
+  // Employment & Income (Step 2)
   employmentType?: 'full_time' | 'part_time' | 'self_employed' | 'contract' | 'casual' | 'unemployed' | 'retired' | 'student';
   employer?: string;
   jobTitle?: string;
@@ -19,24 +20,24 @@ interface OnboardingData {
   monthlyIncome?: number;
   otherIncome?: number;
   
-  // Expenses & Obligations
+  // Expenses & Obligations (Step 3)
   rent?: number;
   monthlyExpenses?: number;
   debts?: number;
   dependents?: number;
   
-  // Assets & Financial Profile
+  // Assets & Financial Profile (Step 4)
   savings?: number;
   assets?: string;
   existingLoans?: number;
   creditCardDebt?: number;
   
-  // Loan Request
+  // Loan Request (Step 5)
   loanAmount?: number;
   loanPurpose?: string;
   loanTerm?: string;
   
-  // NZ Compliance & KYC (Files stored in memory only)
+  // NZ Compliance & KYC (Files stored in memory only) (Step 6)
   document?: File | undefined;
   addressProof?: File | undefined;
   incomeProof?: File | undefined;
@@ -53,12 +54,19 @@ interface OnboardingData {
   
   // Submission tracking
   submitted: boolean;
+  
+  // Backend sync status - Make these required with defaults
+  isSyncing: boolean;
+  lastSyncedAt?: string;
+  syncError?: string;
 }
 
 interface OnboardingStore {
   data: OnboardingData;
   isLoaded: boolean;
   setField: (field: keyof OnboardingData, value: any) => void;
+  saveStep1ToBackend: () => Promise<void>;
+  loadStep1FromBackend: () => Promise<void>;
   reset: () => void;
   markSubmitted: () => void;
   loadFromStorage: () => void;
@@ -80,23 +88,36 @@ const getCurrentUserId = (): string | undefined => {
   return undefined;
 };
 
-// Helper function to load data from localStorage
+// Helper function to load data from localStorage with defaults
 const loadDataFromStorage = (): OnboardingData => {
-  if (typeof window === 'undefined') return { submitted: false };
+  const defaultData: OnboardingData = { 
+    submitted: false, 
+    isSyncing: false,
+    lastSyncedAt: undefined,
+    syncError: undefined
+  };
+  
+  if (typeof window === 'undefined') return defaultData;
   
   const uid = getCurrentUserId();
-  if (!uid) return { submitted: false };
+  if (!uid) return defaultData;
   
   try {
     const saved = localStorage.getItem(`onboarding_${uid}`);
     if (saved) {
       const parsed = JSON.parse(saved);
-      return { submitted: false, ...parsed };
+      return { 
+        ...defaultData, 
+        ...parsed,
+        // Ensure sync properties have correct defaults
+        isSyncing: false, // Always false when loading from storage
+        syncError: undefined // Clear any old sync errors
+      };
     }
   } catch (error) {
     console.error('Error loading onboarding data:', error);
   }
-  return { submitted: false };
+  return defaultData;
 };
 
 // Helper function to save data to localStorage
@@ -107,13 +128,15 @@ const saveDataToStorage = (data: OnboardingData): void => {
   if (!uid) return;
   
   try {
-    // Create a copy of data without File objects for localStorage
-    const dataToSave = { ...data };
-    
-    // Remove File objects as they can't be serialized and cause quota issues
-    delete dataToSave.document;
-    delete dataToSave.addressProof;
-    delete dataToSave.incomeProof;
+    // Use destructuring to exclude properties instead of delete
+    const {
+      document: _document,
+      addressProof: _addressProof,
+      incomeProof: _incomeProof,
+      isSyncing: _isSyncing,
+      syncError: _syncError,
+      ...dataToSave
+    } = data;
     
     const success = safeSetItem(`onboarding_${uid}`, JSON.stringify(dataToSave));
     
@@ -126,8 +149,8 @@ const saveDataToStorage = (data: OnboardingData): void => {
 };
 
 export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
-  data: loadDataFromStorage(), // Load data immediately on store initialization
-  isLoaded: true, // Mark as loaded since we load synchronously
+  data: loadDataFromStorage(),
+  isLoaded: true,
   
   setField: (field, value) => {
     set((state) => {
@@ -137,7 +160,6 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
       };
       
       // Only auto-save non-File fields to localStorage
-      // File objects will be handled in memory only
       if (!(value instanceof File)) {
         saveDataToStorage(newData);
       }
@@ -145,29 +167,160 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
       return { data: newData };
     });
   },
-  
-  reset: () => {
-    const resetData = { submitted: false };
-    set({ data: resetData, isLoaded: true });
-    saveDataToStorage(resetData);
+
+  saveStep1ToBackend: async () => {
+    const { data } = get();
+    
+    // Extract Step 1 fields
+    const step1Data: Step1Data = {
+      fullName: data.fullName || '',
+      dob: data.dob || '',
+      address: data.address || '',
+      email: data.email || '',
+      phoneNumber: data.phoneNumber || '',
+      nzResidencyStatus: data.nzResidencyStatus || 'citizen',
+      taxNumber: data.taxNumber || undefined,
+    };
+
+    // Validate required fields
+    const requiredFields: Array<keyof Step1Data> = [
+      'fullName', 'dob', 'address', 'email', 'phoneNumber', 'nzResidencyStatus'
+    ];
+    
+    const missingFields = requiredFields.filter(field => {
+      const value = step1Data[field];
+      return !value || (typeof value === 'string' && value.trim().length === 0);
+    });
+    
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+    }
+
+    set((state) => ({
+      data: { 
+        ...state.data, 
+        isSyncing: true, 
+        syncError: undefined 
+      }
+    }));
+
+    try {
+      const savedData = await OnboardingService.saveStep1Data(step1Data);
+      
+      set((state) => ({
+        data: {
+          ...state.data,
+          ...savedData,
+          isSyncing: false,
+          lastSyncedAt: new Date().toISOString(),
+          syncError: undefined,
+        }
+      }));
+
+      // Also save to localStorage after successful backend save
+      saveDataToStorage(get().data);
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save data';
+      set((state) => ({
+        data: {
+          ...state.data,
+          isSyncing: false,
+          syncError: errorMessage,
+        }
+      }));
+      throw error;
+    }
   },
-  
+
+  loadStep1FromBackend: async () => {
+    set((state) => ({
+      data: { 
+        ...state.data, 
+        isSyncing: true, 
+        syncError: undefined 
+      }
+    }));
+
+    try {
+      console.log('Loading Step 1 data from backend...');
+      const backendData = await OnboardingService.getStep1Data();
+      
+      if (backendData) {
+        console.log('Backend data received:', backendData);
+        set((state) => ({
+          data: {
+            ...state.data,
+            fullName: backendData.fullName,
+            dob: backendData.dob,
+            address: backendData.address,
+            email: backendData.email,
+            phoneNumber: backendData.phoneNumber,
+            nzResidencyStatus: backendData.nzResidencyStatus,
+            taxNumber: backendData.taxNumber,
+            isSyncing: false,
+            lastSyncedAt: new Date().toISOString(),
+            syncError: undefined,
+          }
+        }));
+
+        // Save to localStorage after successful load
+        saveDataToStorage(get().data);
+        console.log('Store updated with backend data');
+      } else {
+        console.log('No backend data found, keeping local data');
+        // No backend data found, keep local data
+        set((state) => ({
+          data: { 
+            ...state.data, 
+            isSyncing: false, 
+            syncError: undefined 
+          }
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Failed to load from backend:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
+      set((state) => ({
+        data: {
+          ...state.data,
+          isSyncing: false,
+          syncError: errorMessage,
+        }
+      }));
+      
+      // Don't throw error here - we can still use local data
+    }
+  },
+
+  reset: () => {
+    const resetData: OnboardingData = { 
+      submitted: false, 
+      isSyncing: false,
+      lastSyncedAt: undefined,
+      syncError: undefined
+    };
+    set({ data: resetData });
+    const uid = getCurrentUserId();
+    if (uid && typeof window !== 'undefined') {
+      localStorage.removeItem(`onboarding_${uid}`);
+    }
+  },
+
   markSubmitted: () => {
     set((state) => {
-      const newData = {
-        ...state.data,
-        submitted: true,
-      };
+      const newData = { ...state.data, submitted: true };
       saveDataToStorage(newData);
       return { data: newData };
     });
   },
-  
+
   loadFromStorage: () => {
-    const loadedData = loadDataFromStorage();
-    set({ data: loadedData, isLoaded: true });
+    const data = loadDataFromStorage();
+    set({ data, isLoaded: true });
   },
-  
+
   saveToStorage: () => {
     const { data } = get();
     saveDataToStorage(data);

@@ -33,9 +33,14 @@ export const step1Schema = z.object({
     required_error: 'Residency status is required'
   }),
   taxNumber: z.string().optional(),
-});
+}).strict(); // Add strict() to prevent extra properties
 
 export type Step1FormData = z.infer<typeof step1Schema>;
+
+// Type guard to ensure data is API compatible
+export function isStep1ApiCompatible(data: unknown): data is Step1FormData {
+  return step1Schema.safeParse(data).success;
+}
 
 // Fixed Step 2: Employment & Income Schema
 export const step2Schema = z.object({

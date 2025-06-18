@@ -6,6 +6,7 @@ from .routes.health import health_bp
 from .routes.auth import auth_bp
 from .routes.user import user_bp
 from .routes.database import db_bp
+from .routes.onboarding import onboarding_bp 
 from .utils.responses import error_response
 import logging
 import os
@@ -30,7 +31,7 @@ def create_app(config_name=None):
     app.register_blueprint(auth_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(db_bp)  # Add database routes
-    
+    app.register_blueprint(onboarding_bp)  # Add this line
     # Error handlers
     @app.errorhandler(404)
     def not_found(error):

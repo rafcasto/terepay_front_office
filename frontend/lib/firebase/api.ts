@@ -3,6 +3,19 @@ import { auth } from './config';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
+// Define a type for serializable data
+type SerializableData = 
+  | string 
+  | number 
+  | boolean 
+  | null 
+  | undefined
+  | SerializableData[]
+  | { [key: string]: SerializableData };
+
+// More specific type for request bodies
+type RequestBody = Record<string, SerializableData> | SerializableData[];
+
 class ApiClient {
   private baseURL: string;
 
@@ -81,7 +94,11 @@ class ApiClient {
     return this.handleResponse<T>(response);
   }
 
-  async post<T>(endpoint: string, data?: Record<string, unknown>): Promise<T> {
+  // Type-safe POST with proper constraints
+  async post<T, TData extends RequestBody = RequestBody>(
+    endpoint: string, 
+    data?: TData
+  ): Promise<T> {
     const headers = await this.getAuthHeaders();
     const response = await fetch(`${this.baseURL}${endpoint}`, {
       method: 'POST',
@@ -92,7 +109,11 @@ class ApiClient {
     return this.handleResponse<T>(response);
   }
 
-  async put<T>(endpoint: string, data?: Record<string, unknown>): Promise<T> {
+  // Type-safe PUT with proper constraints
+  async put<T, TData extends RequestBody = RequestBody>(
+    endpoint: string, 
+    data?: TData
+  ): Promise<T> {
     const headers = await this.getAuthHeaders();
     const response = await fetch(`${this.baseURL}${endpoint}`, {
       method: 'PUT',
