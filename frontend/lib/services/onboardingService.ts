@@ -2,8 +2,7 @@ import { apiClient } from '@/lib/firebase/api';
 import { 
   Step1ApiData, 
   Step1ResponseData, 
-  OnboardingStatusData,
-  ToApiData 
+  OnboardingStatusData
 } from '@/types/onboarding';
 
 // Domain model (for your components)

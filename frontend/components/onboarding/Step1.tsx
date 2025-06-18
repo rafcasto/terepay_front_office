@@ -2,8 +2,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useOnboardingStore } from '@/store/onboardingStore';
-import { step1Schema, Step1FormData, isStep1ApiCompatible } from '@/lib/utils/validators';
-import { Step1Data } from '@/lib/services/onboardingService';
+import { step1Schema, Step1FormData } from '@/lib/utils/validators';
 import { Input } from '@/components/ui/Input';
 import { Navigation } from './Navigation';
 import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
@@ -72,18 +71,6 @@ export default function Step1() {
     setValue(field, value);
   };
 
-  // Convert form data to service format
-  const formDataToStep1Data = (formData: Step1FormData): Step1Data => {
-    return {
-      fullName: formData.fullName.trim(),
-      dob: formData.dob,
-      address: formData.address.trim(),
-      email: formData.email.trim(),
-      phoneNumber: formData.phoneNumber.trim(),
-      nzResidencyStatus: formData.nzResidencyStatus,
-      taxNumber: formData.taxNumber?.trim() || undefined,
-    };
-  };
 
   // Handle continue button - auto-saves and navigates
   const handleContinue = async () => {
@@ -94,7 +81,7 @@ export default function Step1() {
       const currentValues = formValues as Step1FormData;
       
       // Convert to Step1Data format
-      const step1Data = formDataToStep1Data(currentValues);
+      
       
       // Update store with current form data
       Object.entries(currentValues).forEach(([key, value]) => {
@@ -138,7 +125,7 @@ export default function Step1() {
           <h3 className="text-red-800 font-medium">Initialization Error</h3>
           <p className="text-red-700 text-sm mt-1">{initError}</p>
           <p className="text-red-600 text-xs mt-2">
-            You can still fill out the form, but data won't be saved to the server.
+            You can still fill out the form, but data won&apos;t be saved to the server.
           </p>
         </div>
       </div>
@@ -150,7 +137,7 @@ export default function Step1() {
       <div className="border-l-4 border-orange-500 pl-4">
         <h2 className="text-xl font-bold mb-2 text-gray-800">Personal Information</h2>
         <p className="text-sm text-gray-600 mb-4">
-          We collect this information to comply with New Zealand's Anti-Money Laundering and Countering Financing of Terrorism Act 2009.
+          We collect this information to comply with New Zealand&apos;s Anti-Money Laundering and Countering Financing of Terrorism Act 2009.
         </p>
       </div>
 
