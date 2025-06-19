@@ -8,12 +8,16 @@ import {
   Step2ResponseData,
   Step3Data,
   Step3ApiData,
+  Step4Data,
+  Step4ApiData,
+  Step4ResponseData,
   Step3ResponseData,
   OnboardingStatusData,
   OnboardingStatus,
   SavedStep1Data,
   SavedStep2Data,
-  SavedStep3Data
+  SavedStep3Data,
+  SavedStep4Data
 } from '@/types/onboarding';
 
 
@@ -264,4 +268,71 @@ private static toStep3ApiFormat(data: Step3Data): Step3ApiData {
       throw error;
     }
   }
+
+ // Step 4 Methods
+// Add Step4Data, Step4ApiData, Step4ResponseData, SavedStep4Data to your imports
+
+// Step 4 Methods - copy Step 2 pattern exactly
+/**
+ * Convert Step 4 domain model to API format
+ */
+private static toStep4ApiFormat(data: Step4Data): Step4ApiData {
+  return {
+    savings: data.savings,
+    assets: data.assets,
+    sourceOfFunds: data.sourceOfFunds,
+    expectedAccountActivity: data.expectedAccountActivity,
+    isPoliticallyExposed: data.isPoliticallyExposed,
+  };
+}
+
+/**
+ * Convert Step 4 API response to domain model
+ */
+private static fromStep4ApiFormat(data: Step4ResponseData): SavedStep4Data {
+  return {
+    savings: data.savings,
+    assets: data.assets,
+    sourceOfFunds: data.sourceOfFunds,
+    expectedAccountActivity: data.expectedAccountActivity,
+    isPoliticallyExposed: data.isPoliticallyExposed,
+    stepCompleted: data.stepCompleted,
+    isCompleted: data.isCompleted,
+  };
+}
+
+static async saveStep4Data(data: Step4Data): Promise<SavedStep4Data> {
+  try {
+    const apiData = this.toStep4ApiFormat(data);
+    
+    const response = await apiClient.post<Step4ResponseData, Step4ApiData>(
+      '/api/onboarding/step4', 
+      apiData
+    );
+    
+    return this.fromStep4ApiFormat(response);
+  } catch (error) {
+    console.error('Failed to save Step 4 data:', error);
+    throw error;
+  }
+}
+
+static async getStep4Data(): Promise<SavedStep4Data | null> {
+  try {
+    const response = await apiClient.get<Step4ResponseData>('/api/onboarding/step4');
+    
+    if (!response) {
+      return null;
+    }
+    
+    return this.fromStep4ApiFormat(response);
+  } catch (error) {
+    console.error('Failed to get Step 4 data:', error);
+    if (error instanceof Error && error.message.includes('No Step 4 data found')) {
+      return null;
+    }
+    throw error;
+  }
+}
+ 
 }

@@ -304,3 +304,82 @@ class OnboardingService:
         except Exception as e:
             logger.error(f"Failed to get Step 3 data: {e}")
             return False, str(e)
+
+    
+
+    @staticmethod
+    def save_step4_data(firebase_uid, step4_data):
+        """Save or update Step 4 onboarding data."""
+        try:
+            conn = DatabaseService.get_connection()
+            cursor = conn.cursor()
+            
+            # Prepare the data
+            savings = step4_data.get('savings')
+            assets = step4_data.get('assets')
+            source_of_funds = step4_data.get('sourceOfFunds')
+            expected_account_activity = step4_data.get('expectedAccountActivity')
+            is_politically_exposed = step4_data.get('isPoliticallyExposed')
+            
+            # Use UPSERT to handle both insert and update
+            cursor.execute("""
+                INSERT INTO onboarding_applications (
+                    firebase_uid, savings, assets, source_of_funds, 
+                    expected_account_activity, is_politically_exposed, step_completed
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (firebase_uid) 
+                DO UPDATE SET
+                    savings = EXCLUDED.savings,
+                    assets = EXCLUDED.assets,
+                    source_of_funds = EXCLUDED.source_of_funds,
+                    expected_account_activity = EXCLUDED.expected_account_activity,
+                    is_politically_exposed = EXCLUDED.is_politically_exposed,
+                    step_completed = GREATEST(onboarding_applications.step_completed, 4),
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING id, firebase_uid, savings, assets, source_of_funds,
+                        expected_account_activity, is_politically_exposed,
+                        step_completed, created_at, updated_at;
+            """, (
+                firebase_uid, savings, assets, source_of_funds, 
+                expected_account_activity, is_politically_exposed, 4
+            ))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return True, dict(result)
+            
+        except Exception as e:
+            logger.error(f"Failed to save Step 4 data: {e}")
+            return False, str(e)
+
+    @staticmethod
+    def get_step4_data(firebase_uid):
+        """Get Step 4 onboarding data for a user."""
+        try:
+            conn = DatabaseService.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT 
+                    id, firebase_uid, savings, assets, source_of_funds,
+                    expected_account_activity, is_politically_exposed,
+                    step_completed, is_completed, created_at, updated_at
+                FROM onboarding_applications 
+                WHERE firebase_uid = %s
+            """, (firebase_uid,))
+            
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if result:
+                return True, dict(result)
+            else:
+                return True, None
+                
+        except Exception as e:
+            logger.error(f"Failed to get Step 4 data: {e}")
+            return False, str(e)

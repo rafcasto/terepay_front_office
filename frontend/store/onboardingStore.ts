@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { safeSetItem } from '@/lib/utils/storageUtils';
 import { OnboardingService } from '@/lib/services/onboardingService';
-import { Step1Data, Step2Data,Step3Data } from '@/types/onboarding';
+import { Step1Data, Step2Data,Step3Data,Step4Data } from '@/types/onboarding';
 
 interface OnboardingData {
   // Personal Information (Step 1)
@@ -27,11 +27,14 @@ interface OnboardingData {
   debts?: number;
   dependents?: number;
   
+  
+  // Assets & Financial Profile (Step 4) - FIXED TYPES
   // Assets & Financial Profile (Step 4)
   savings?: number;
-  assets?: string;
-  existingLoans?: number;
-  creditCardDebt?: number;
+  assets?: number;
+  sourceOfFunds?: string;
+  expectedAccountActivity?: string;
+  isPoliticallyExposed?: boolean;
   
   // Loan Request (Step 5)
   loanAmount?: number;
@@ -43,11 +46,7 @@ interface OnboardingData {
   addressProof?: File | undefined;
   incomeProof?: File | undefined;
   
-  // AML/KYC Declarations
-  isPoliticallyExposed?: boolean;
-  sourceOfFunds?: string;
-  expectedAccountActivity?: string;
-  
+   
   // Responsible Lending Declarations
   understandsTerms?: boolean;
   canAffordRepayments?: boolean;
@@ -69,9 +68,11 @@ interface OnboardingStore {
   saveStep1ToBackend: () => Promise<void>;
   saveStep2ToBackend: () => Promise<void>;
   saveStep3ToBackend: () =>  Promise<void>;
+  saveStep4ToBackend: () =>  Promise<void>;
   loadStep1FromBackend: () => Promise<void>;
   loadStep2FromBackend: () => Promise<void>;
   loadStep3FromBackend: () => Promise<void>;
+  loadStep4FromBackend: () => Promise<void>;
   reset: () => void;
   markSubmitted: () => void;
   loadFromStorage: () => void;
@@ -546,7 +547,114 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
       // Don't throw error here - we can still use local data
     }
   },
+  // Add these methods to your frontend/store/onboardingStore.ts
+
+  saveStep4ToBackend: async () => {
+    const { data } = get();
+    
+    // Extract Step 4 fields - same pattern as Step 2
+    const step4Data: Step4Data = {
+      savings: data.savings || undefined,
+      assets: data.assets || undefined,
+      sourceOfFunds: data.sourceOfFunds || '',
+      expectedAccountActivity: data.expectedAccountActivity || '',
+      isPoliticallyExposed: data.isPoliticallyExposed || false,
+    };
   
+    set((state) => ({
+      data: { 
+        ...state.data, 
+        isSyncing: true, 
+        syncError: undefined 
+      }
+    }));
+  
+    try {
+      const savedData = await OnboardingService.saveStep4Data(step4Data);
+      
+      set((state) => ({
+        data: {
+          ...state.data,
+          ...savedData,
+          isSyncing: false,
+          lastSyncedAt: new Date().toISOString(),
+          syncError: undefined,
+        }
+      }));
+  
+      // Also save to localStorage after successful backend save
+      saveDataToStorage(get().data);
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save data';
+      set((state) => ({
+        data: {
+          ...state.data,
+          isSyncing: false,
+          syncError: errorMessage,
+        }
+      }));
+      throw error;
+    }
+  },
+  
+  loadStep4FromBackend: async () => {
+    set((state) => ({
+      data: { 
+        ...state.data, 
+        isSyncing: true, 
+        syncError: undefined 
+      }
+    }));
+  
+    try {
+      console.log('Loading Step 4 data from backend...');
+      const backendData = await OnboardingService.getStep4Data();
+      
+      if (backendData) {
+        console.log('Backend Step 4 data received:', backendData);
+        set((state) => ({
+          data: {
+            ...state.data,
+            savings: backendData.savings,
+            assets: backendData.assets,
+            sourceOfFunds: backendData.sourceOfFunds,
+            expectedAccountActivity: backendData.expectedAccountActivity,
+            isPoliticallyExposed: backendData.isPoliticallyExposed,
+            isSyncing: false,
+            lastSyncedAt: new Date().toISOString(),
+            syncError: undefined,
+          }
+        }));
+  
+        // Save to localStorage after successful load
+        saveDataToStorage(get().data);
+        console.log('Store updated with backend Step 4 data');
+      } else {
+        console.log('No backend Step 4 data found, keeping local data');
+        set((state) => ({
+          data: { 
+            ...state.data, 
+            isSyncing: false, 
+            syncError: undefined 
+          }
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Failed to load Step 4 from backend:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
+      set((state) => ({
+        data: {
+          ...state.data,
+          isSyncing: false,
+          syncError: errorMessage,
+        }
+      }));
+      
+      // Don't throw error here - we can still use local data
+    }
+  },
   reset: () => {
     const resetData: OnboardingData = { 
       submitted: false, 

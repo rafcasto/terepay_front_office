@@ -119,17 +119,20 @@ export const step3Schema = z.object({
 export type Step3FormData = z.infer<typeof step3Schema>;
 
 // Step 4: Assets & Financial Profile Schema
+// Step 4: Assets & Financial Profile Schema
 export const step4Schema = z.object({
   savings: z.number().min(0, 'Amount cannot be negative').max(10000000, 'Please enter a realistic amount').optional(),
-  assets: z.string().optional(),
+  assets: z.number().min(0, 'Amount cannot be negative').max(10000000, 'Please enter a realistic amount').optional(),
   sourceOfFunds: z.enum([
-    'employment', 'business', 'investments', 'benefits', 
-    'pension', 'family', 'savings', 'other'
+    'employment', 'business', 'investments', 'savings', 
+    'inheritance', 'gift', 'pension', 'benefits', 'other'
   ], {
     required_error: 'Source of funds is required for compliance'
   }),
-  expectedAccountActivity: z.enum(['low', 'medium', 'high'], {
-    required_error: 'Expected account activity level is required'
+  expectedAccountActivity: z.enum([
+    'low', 'medium', 'high'
+  ], {
+    required_error: 'Expected account activity is required'
   }),
   isPoliticallyExposed: z.boolean().optional(),
 });

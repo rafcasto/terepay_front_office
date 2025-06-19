@@ -505,3 +505,76 @@ def get_step3():
             500,
             'INTERNAL_ERROR'
         )
+    
+# Add these routes to your existing onboarding.py in backend/app/routes/onboarding.py
+
+@onboarding_bp.route('/step4', methods=['POST'])
+@verify_firebase_token
+def save_step4():
+    """Save Step 4 onboarding data."""
+    try:
+        # Get user ID from Firebase token
+        firebase_uid = request.firebase_user['uid']
+        
+        # Get JSON data from request
+        step4_data = request.get_json()
+        
+        if not step4_data:
+            return error_response("No data provided", 400, 'NO_DATA')
+        
+        # Save to database
+        success, result = OnboardingService.save_step4_data(firebase_uid, step4_data)
+        
+        if success:
+            # Transform database format to frontend format for response
+            frontend_data = {
+                'savings': float(result.get('savings')) if result.get('savings') else None,
+                'assets': float(result.get('assets')) if result.get('assets') else None,
+                'sourceOfFunds': result.get('source_of_funds'),
+                'expectedAccountActivity': result.get('expected_account_activity'),
+                'isPoliticallyExposed': result.get('is_politically_exposed', False),
+                'stepCompleted': result.get('step_completed', 4),
+                'isCompleted': result.get('is_completed', False)
+            }
+            
+            return success_response(frontend_data, "Step 4 data saved successfully")
+        else:
+            return error_response(f"Failed to save Step 4 data: {result}", 500, 'DATABASE_ERROR')
+            
+    except Exception as e:
+        logger.error(f"Error in save_step4: {e}")
+        return error_response("Internal server error", 500, 'INTERNAL_ERROR')
+
+@onboarding_bp.route('/step4', methods=['GET'])
+@verify_firebase_token
+def get_step4():
+    """Get Step 4 onboarding data."""
+    try:
+        # Get user ID from Firebase token
+        firebase_uid = request.firebase_user['uid']
+        
+        # Get data from database
+        success, result = OnboardingService.get_step4_data(firebase_uid)
+        
+        if success:
+            if result:
+                # Transform database format to frontend format
+                frontend_data = {
+                    'savings': float(result.get('savings')) if result.get('savings') else None,
+                    'assets': float(result.get('assets')) if result.get('assets') else None,
+                    'sourceOfFunds': result.get('source_of_funds'),
+                    'expectedAccountActivity': result.get('expected_account_activity'),
+                    'isPoliticallyExposed': result.get('is_politically_exposed', False),
+                    'stepCompleted': result.get('step_completed', 0),
+                    'isCompleted': result.get('is_completed', False)
+                }
+                
+                return success_response(frontend_data, "Step 4 data retrieved successfully")
+            else:
+                return success_response({}, "No Step 4 data found for user")
+        else:
+            return error_response(f"Failed to retrieve Step 4 data: {result}", 500, 'DATABASE_ERROR')
+            
+    except Exception as e:
+        logger.error(f"Error in get_step4: {e}")
+        return error_response("Internal server error", 500, 'INTERNAL_ERROR')

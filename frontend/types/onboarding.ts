@@ -177,3 +177,36 @@ export function isStep3ApiData(data: unknown): data is Step3ApiData {
     obj.dependents >= 0 && obj.dependents <= 10
   );
 }
+
+// Step 4 interfaces with proper API compatibility
+export interface Step4ApiData extends ApiCompatible {
+  savings?: number;
+  assets?: number;
+  sourceOfFunds: string;
+  expectedAccountActivity: string;
+  isPoliticallyExposed: boolean;
+}
+
+export interface Step4ResponseData extends Step4ApiData {
+  id?: number;
+  firebase_uid?: string;
+  stepCompleted: number;
+  isCompleted: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Domain model interface for Step 4 (for frontend components)
+export interface Step4Data {
+  savings?: number;
+  assets?: number;
+  sourceOfFunds: string;
+  expectedAccountActivity: string;
+  isPoliticallyExposed: boolean;
+}
+
+// Extended data interface with backend metadata
+export interface SavedStep4Data extends Step4Data {
+  stepCompleted: number;
+  isCompleted: boolean;
+}

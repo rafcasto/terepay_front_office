@@ -6,33 +6,118 @@ import { step4Schema, Step4FormData } from '@/lib/utils/validators';
 import { Input } from '@/components/ui/Input';
 import { Navigation } from './Navigation';
 import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { useState, useEffect } from 'react';
 
 export default function Step4() {
-  const { data, setField } = useOnboardingStore();
+  const { data, setField, saveStep4ToBackend } = useOnboardingStore();
+  const [isSaving, setIsSaving] = useState(false);
   
-  // Load saved data on component mount
-  useOnboardingPersistence();
+  // Load saved data and handle backend sync - SAME AS STEP 2
+  const { 
+    isLoaded, 
+    isInitializing, 
+    initError, 
+    isSyncing = false,
+    syncError = null,
+    lastSyncedAt
+  } = useOnboardingPersistence();
 
   const {
     register,
     formState: { errors, isValid },
-    setValue
+    setValue,
+    watch,
+    reset
   } = useForm<Step4FormData>({
     resolver: zodResolver(step4Schema),
     defaultValues: {
-      savings: data.savings || undefined,
-      assets: data.assets || '',
-      sourceOfFunds: data.sourceOfFunds as Step4FormData['sourceOfFunds'] || undefined,
-      expectedAccountActivity: data.expectedAccountActivity as Step4FormData['expectedAccountActivity'] || undefined,
-      isPoliticallyExposed: data.isPoliticallyExposed || false,
+      savings: undefined,
+      assets: undefined,
+      sourceOfFunds: undefined,
+      expectedAccountActivity: undefined,
+      isPoliticallyExposed: false,
     },
-    mode: 'onBlur'
+    mode: 'onBlur'  
   });
 
+  // Watch form values for real-time updates - SAME AS STEP 2
+  const formValues = watch();
+
+  // Update form when store data changes - SAME AS STEP 2
+  useEffect(() => {
+    if (isLoaded && !isSyncing) {
+      const storeData = {
+        savings: data.savings || undefined,
+        assets: data.assets || undefined,
+        sourceOfFunds: data.sourceOfFunds as Step4FormData['sourceOfFunds'] || undefined,
+        expectedAccountActivity: data.expectedAccountActivity as Step4FormData['expectedAccountActivity'] || undefined,
+        isPoliticallyExposed: data.isPoliticallyExposed || false,
+      };
+
+      reset(storeData);
+      console.log('Step 4 form reset with store data:', storeData);
+    }
+  }, [data, isLoaded, isSyncing, reset]);
+
+  // Update store when form values change - SAME AS STEP 2
   const updateField = (field: keyof Step4FormData, value: Step4FormData[typeof field]) => {
     setField(field, value);
     setValue(field, value);
   };
+
+  // Handle continue button - SAME PATTERN AS STEP 2
+  const handleContinue = async () => {
+    setIsSaving(true);
+
+    try {
+      // Get current form values
+      const currentValues = formValues as Step4FormData;
+      
+      // Update store with current form data
+      Object.entries(currentValues).forEach(([key, value]) => {
+        setField(key as keyof Step4FormData, value);
+      });
+
+      // Save to backend
+      await saveStep4ToBackend();
+      
+      // Navigate to next step on success
+      if (typeof window !== 'undefined') {
+        window.location.href = '/onboarding/5';
+      }
+      
+    } catch (error) {
+      console.error('Continue error:', error);
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Show loading state - SAME AS STEP 2
+  if (isInitializing || !isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-gray-600">Loading onboarding data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show initialization error - SAME AS STEP 2
+  if (initError) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-red-800 font-medium">Initialization Error</h3>
+          <p className="text-red-700 text-sm mt-1">{initError}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -40,6 +125,30 @@ export default function Step4() {
         <h2 className="text-xl font-bold mb-2 text-gray-800">Assets & Financial Profile</h2>
         <p className="text-sm text-gray-600 mb-4">Information about your assets and financial profile helps us understand your overall financial position.</p>
       </div>
+
+      {/* Sync Status - SAME AS STEP 2 */}
+      {(isSyncing || syncError || lastSyncedAt) && (
+        <div className={`p-3 rounded-lg border ${
+          syncError 
+            ? 'bg-red-50 border-red-200' 
+            : isSyncing 
+              ? 'bg-blue-50 border-blue-200'
+              : 'bg-green-50 border-green-200'
+        }`}>
+          <div className="flex items-center space-x-2">
+            {isSyncing && (
+              <LoadingSpinner size="sm" />
+            )}
+            <span className={`text-sm ${
+              syncError ? 'text-red-700' : isSyncing ? 'text-blue-700' : 'text-green-700'
+            }`}>
+              {syncError ? `Sync error: ${syncError}` : 
+               isSyncing ? 'Saving...' : 
+               `Last saved: ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString() : 'Unknown'}`}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -63,16 +172,21 @@ export default function Step4() {
         
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Estimated Value of Assets
+            Total Value of Assets
           </label>
           <Input
             {...register('assets', {
-              onChange: (e) => updateField('assets', e.target.value)
+              onChange: (e) => updateField('assets', parseFloat(e.target.value) || undefined),
+              valueAsNumber: true
             })}
-            placeholder="Car, property, valuables, etc."
+            type="number"
+            placeholder="0.00"
+            min="0"
+            max="10000000"
+            step="1000"
             error={errors.assets?.message}
           />
-          <p className="text-xs text-gray-500 mt-1">Describe your major assets and their approximate value</p>
+          <p className="text-xs text-gray-500 mt-1">Car, property, valuables, etc.</p>
         </div>
       </div>
 
@@ -151,27 +265,12 @@ export default function Step4() {
         </div>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800">
-              Why We Need This Information
-            </h3>
-            <div className="mt-2 text-sm text-blue-700">
-              <p>
-                This information helps us comply with New Zealand&apos;s financial regulations and ensures we can provide you with appropriate services while meeting our legal obligations.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <Navigation step={4} isValid={isValid} />
+      <Navigation 
+        step={4}
+        isValid={isValid && isLoaded}
+        isLoading={isSaving || isSyncing}
+        onSubmit={handleContinue}
+      />
     </div>
   );
 }
