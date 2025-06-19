@@ -1,32 +1,22 @@
 import { apiClient } from '@/lib/firebase/api';
 import { 
-  Step1ApiData, 
-  Step1ResponseData, 
-  OnboardingStatusData
+  Step1Data,
+  Step1ApiData,
+  Step1ResponseData,
+  Step2Data,
+  Step2ApiData,
+  Step2ResponseData,
+  OnboardingStatusData,
+  OnboardingStatus,
+  SavedStep1Data,
+  SavedStep2Data
 } from '@/types/onboarding';
 
-// Domain model (for your components)
-export interface Step1Data {
-  fullName: string;
-  dob: string;
-  address: string;
-  email: string;
-  phoneNumber: string;
-  nzResidencyStatus: 'citizen' | 'permanent_resident' | 'temporary_resident' | 'work_visa' | 'student_visa';
-  taxNumber?: string;
-}
 
-export interface OnboardingStatus {
-  stepCompleted: number;
-  isCompleted: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
 
-export interface SavedStep1Data extends Step1Data {
-  stepCompleted: number;
-  isCompleted: boolean;
-}
+
+
+
 
 export class OnboardingService {
   /**
@@ -91,6 +81,52 @@ export class OnboardingService {
       throw error;
     }
   }
+  
+  // Step 2 Methods
+  /**
+   * Convert Step 2 domain model to API format
+   */
+  private static toStep2ApiFormat(data: Step2Data): Step2ApiData {
+    return {
+      employmentType: data.employmentType,
+      ...(data.employer && { employer: data.employer }),
+      ...(data.jobTitle && { jobTitle: data.jobTitle }),
+      ...(data.employmentDuration && { employmentDuration: data.employmentDuration }),
+      ...(data.monthlyIncome !== undefined && { monthlyIncome: data.monthlyIncome }),
+      ...(data.otherIncome !== undefined && { otherIncome: data.otherIncome }),
+    };
+  }
+   /**
+   * Convert Step 2 API response to domain model
+   */
+   private static fromStep2ApiFormat(data: Step2ResponseData): SavedStep2Data {
+    return {
+      employmentType: data.employmentType as Step2Data['employmentType'],
+      employer: data.employer,
+      jobTitle: data.jobTitle,
+      employmentDuration: data.employmentDuration,
+      monthlyIncome: data.monthlyIncome,
+      otherIncome: data.otherIncome,
+      stepCompleted: data.stepCompleted,
+      isCompleted: data.isCompleted,
+    };
+  }
+
+  static async saveStep2Data(data: Step2Data): Promise<SavedStep2Data> {
+    try {
+      const apiData = this.toStep2ApiFormat(data);
+      
+      const response = await apiClient.post<Step2ResponseData, Step2ApiData>(
+        '/api/onboarding/step2', 
+        apiData
+      );
+      
+      return this.fromStep2ApiFormat(response);
+    } catch (error) {
+      console.error('Failed to save Step 2 data:', error);
+      throw error;
+    }
+  }
 
   /**
    * Get Step 1 data from the backend
@@ -108,6 +144,25 @@ export class OnboardingService {
       console.error('Failed to get Step 1 data:', error);
       // Return null if no data found (user hasn't started onboarding)
       if (error instanceof Error && error.message.includes('No Step 1 data found')) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  static async getStep2Data(): Promise<SavedStep2Data | null> {
+    try {
+      const response = await apiClient.get<Step2ResponseData>('/api/onboarding/step2');
+      
+      if (!response) {
+        return null;
+      }
+      
+      return this.fromStep2ApiFormat(response);
+    } catch (error) {
+      console.error('Failed to get Step 2 data:', error);
+      // Return null if no data found (user hasn't started step 2)
+      if (error instanceof Error && error.message.includes('No Step 2 data found')) {
         return null;
       }
       throw error;

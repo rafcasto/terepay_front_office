@@ -4,6 +4,7 @@ import logging
 from flask import current_app
 from urllib.parse import urlparse
 from ..services.database_service import DatabaseService
+
 logger = logging.getLogger(__name__)
 
 class OnboardingService:
@@ -58,6 +59,56 @@ class OnboardingService:
             return False, str(e)
 
     @staticmethod
+    def save_step2_data(firebase_uid, step2_data):
+        """Save or update Step 2 onboarding data."""
+        try:
+            conn = DatabaseService.get_connection()
+            cursor = conn.cursor()
+            
+            # Prepare the data
+            employment_type = step2_data.get('employmentType')
+            employer = step2_data.get('employer')
+            job_title = step2_data.get('jobTitle')
+            employment_duration = step2_data.get('employmentDuration')
+            monthly_income = step2_data.get('monthlyIncome')
+            other_income = step2_data.get('otherIncome', 0)
+            
+            # Use UPSERT to handle both insert and update
+            cursor.execute("""
+                INSERT INTO onboarding_applications (
+                    firebase_uid, employment_type, employer, job_title, 
+                    employment_duration, monthly_income, other_income, step_completed
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (firebase_uid) 
+                DO UPDATE SET
+                    employment_type = EXCLUDED.employment_type,
+                    employer = EXCLUDED.employer,
+                    job_title = EXCLUDED.job_title,
+                    employment_duration = EXCLUDED.employment_duration,
+                    monthly_income = EXCLUDED.monthly_income,
+                    other_income = EXCLUDED.other_income,
+                    step_completed = GREATEST(onboarding_applications.step_completed, 2),
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING id, firebase_uid, employment_type, employer, job_title, 
+                         employment_duration, monthly_income, other_income, 
+                         step_completed, created_at, updated_at;
+            """, (
+                firebase_uid, employment_type, employer, job_title, 
+                employment_duration, monthly_income, other_income, 2
+            ))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return True, dict(result)
+            
+        except Exception as e:
+            logger.error(f"Failed to save Step 2 data: {e}")
+            return False, str(e)
+
+    @staticmethod
     def get_step1_data(firebase_uid):
         """Get Step 1 onboarding data for a user."""
         try:
@@ -93,6 +144,35 @@ class OnboardingService:
             return False, str(e)
 
     @staticmethod
+    def get_step2_data(firebase_uid):
+        """Get Step 2 onboarding data for a user."""
+        try:
+            conn = DatabaseService.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT 
+                    id, firebase_uid, employment_type, employer, job_title,
+                    employment_duration, monthly_income, other_income, 
+                    step_completed, is_completed, created_at, updated_at
+                FROM onboarding_applications 
+                WHERE firebase_uid = %s;
+            """, (firebase_uid,))
+            
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if result:
+                return True, dict(result)
+            else:
+                return True, None
+                
+        except Exception as e:
+            logger.error(f"Failed to get Step 2 data: {e}")
+            return False, str(e)
+
+    @staticmethod
     def get_user_onboarding_status(firebase_uid):
         """Get user's onboarding completion status."""
         try:
@@ -116,4 +196,35 @@ class OnboardingService:
                 
         except Exception as e:
             logger.error(f"Failed to get onboarding status: {e}")
+            return False, str(e)
+
+    @staticmethod
+    def get_complete_user_data(firebase_uid):
+        """Get all onboarding data for a user."""
+        try:
+            conn = DatabaseService.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT *
+                FROM onboarding_applications 
+                WHERE firebase_uid = %s;
+            """, (firebase_uid,))
+            
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if result:
+                data = dict(result)
+                # Convert date to string format for frontend
+                if data.get('date_of_birth'):
+                    data['date_of_birth'] = data['date_of_birth'].strftime('%Y-%m-%d')
+                
+                return True, data
+            else:
+                return True, None
+                
+        except Exception as e:
+            logger.error(f"Failed to get complete user data: {e}")
             return False, str(e)

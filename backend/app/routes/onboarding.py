@@ -1,5 +1,3 @@
-# Create new file: backend/app/routes/onboarding.py
-
 from flask import Blueprint, request, jsonify
 from ..services.onboarding_service import OnboardingService
 from ..services.database_service import DatabaseService
@@ -72,6 +70,133 @@ def save_step1():
             'INTERNAL_ERROR'
         )
 
+@onboarding_bp.route('/step2', methods=['POST'])
+@verify_firebase_token
+def save_step2():
+    """Save Step 2 onboarding data."""
+    try:
+        # Get user ID from Firebase token
+        firebase_uid = request.firebase_user['uid']
+        
+        # Get JSON data from request
+        step2_data = request.get_json()
+        
+        if not step2_data:
+            return error_response(
+                "No data provided",
+                400,
+                'NO_DATA'
+            )
+        
+        # Validate required fields
+        required_fields = ['employmentType']
+        missing_fields = [field for field in required_fields if not step2_data.get(field)]
+        
+        if missing_fields:
+            return error_response(
+                f"Missing required fields: {', '.join(missing_fields)}",
+                400,
+                'MISSING_REQUIRED_FIELDS'
+            )
+        
+        # Validate employment type
+        valid_employment_types = ['full_time', 'part_time', 'self_employed', 'contract', 'casual', 'unemployed', 'retired', 'student']
+        if step2_data.get('employmentType') not in valid_employment_types:
+            return error_response(
+                "Invalid employment type",
+                400,
+                'INVALID_EMPLOYMENT_TYPE'
+            )
+        
+        # Validate employment duration if provided
+        if step2_data.get('employmentDuration'):
+            valid_durations = ['less_than_3_months', '3_to_6_months', '6_months_to_1_year', '1_to_2_years', '2_to_5_years', 'more_than_5_years']
+            if step2_data.get('employmentDuration') not in valid_durations:
+                return error_response(
+                    "Invalid employment duration",
+                    400,
+                    'INVALID_EMPLOYMENT_DURATION'
+                )
+        
+        # Business logic validation for employed individuals
+        employment_type = step2_data.get('employmentType')
+        if employment_type not in ['unemployed', 'retired']:
+            # For employed individuals, require additional fields
+            if not step2_data.get('employer'):
+                return error_response(
+                    "Employer name is required for employed individuals",
+                    400,
+                    'MISSING_EMPLOYER'
+                )
+            
+            if not step2_data.get('jobTitle'):
+                return error_response(
+                    "Job title is required for employed individuals",
+                    400,
+                    'MISSING_JOB_TITLE'
+                )
+            
+            if not step2_data.get('employmentDuration'):
+                return error_response(
+                    "Employment duration is required for employed individuals",
+                    400,
+                    'MISSING_EMPLOYMENT_DURATION'
+                )
+            
+            if not step2_data.get('monthlyIncome') or step2_data.get('monthlyIncome') <= 0:
+                return error_response(
+                    "Monthly income is required and must be greater than 0 for employed individuals",
+                    400,
+                    'INVALID_MONTHLY_INCOME'
+                )
+        
+        # For unemployed/retired, ensure they have some form of income
+        if employment_type in ['unemployed', 'retired']:
+            monthly_income = step2_data.get('monthlyIncome', 0)
+            other_income = step2_data.get('otherIncome', 0)
+            
+            if monthly_income <= 0 and other_income <= 0:
+                return error_response(
+                    "Please specify your income source. Enter the amount in either monthly income or other income field.",
+                    400,
+                    'NO_INCOME_SPECIFIED'
+                )
+        
+        # Save to database
+        success, result = OnboardingService.save_step2_data(firebase_uid, step2_data)
+        
+        if success:
+            # Transform database format to frontend format for response
+            frontend_data = {
+                'employmentType': result.get('employment_type'),
+                'employer': result.get('employer'),
+                'jobTitle': result.get('job_title'),
+                'employmentDuration': result.get('employment_duration'),
+                'monthlyIncome': float(result.get('monthly_income')) if result.get('monthly_income') else None,
+                'otherIncome': float(result.get('other_income')) if result.get('other_income') else 0,
+                'stepCompleted': result.get('step_completed', 2),
+                'isCompleted': result.get('is_completed', False)
+            }
+            
+            return success_response(
+                frontend_data,
+                "Step 2 data saved successfully"
+            )
+        else:
+            return error_response(
+                f"Failed to save Step 2 data: {result}",
+                500,
+                'DATABASE_ERROR'
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in save_step2: {e}")
+        return error_response(
+            "Internal server error",
+            500,
+            'INTERNAL_ERROR'
+        )
+
 @onboarding_bp.route('/step1', methods=['GET'])
 @verify_firebase_token
 def get_step1():
@@ -116,6 +241,55 @@ def get_step1():
             
     except Exception as e:
         logger.error(f"Error in get_step1: {e}")
+        return error_response(
+            "Internal server error",
+            500,
+            'INTERNAL_ERROR'
+        )
+
+@onboarding_bp.route('/step2', methods=['GET'])
+@verify_firebase_token
+def get_step2():
+    """Get Step 2 onboarding data."""
+    try:
+        # Get user ID from Firebase token
+        firebase_uid = request.firebase_user['uid']
+        
+        # Get data from database
+        success, result = OnboardingService.get_step2_data(firebase_uid)
+        
+        if success:
+            if result:
+                # Transform database format to frontend format
+                frontend_data = {
+                    'employmentType': result.get('employment_type'),
+                    'employer': result.get('employer'),
+                    'jobTitle': result.get('job_title'),
+                    'employmentDuration': result.get('employment_duration'),
+                    'monthlyIncome': float(result.get('monthly_income')) if result.get('monthly_income') else None,
+                    'otherIncome': float(result.get('other_income')) if result.get('other_income') else 0,
+                    'stepCompleted': result.get('step_completed', 0),
+                    'isCompleted': result.get('is_completed', False)
+                }
+                
+                return success_response(
+                    frontend_data,
+                    "Step 2 data retrieved successfully"
+                )
+            else:
+                return success_response(
+                    {},
+                    "No Step 2 data found for user"
+                )
+        else:
+            return error_response(
+                f"Failed to retrieve Step 2 data: {result}",
+                500,
+                'DATABASE_ERROR'
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in get_step2: {e}")
         return error_response(
             "Internal server error",
             500,

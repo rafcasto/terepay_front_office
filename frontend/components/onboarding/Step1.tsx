@@ -137,7 +137,7 @@ export default function Step1() {
       <div className="border-l-4 border-orange-500 pl-4">
         <h2 className="text-xl font-bold mb-2 text-gray-800">Personal Information</h2>
         <p className="text-sm text-gray-600 mb-4">
-          We collect this information to comply with New Zealand&apos;s Anti-Money Laundering and Countering Financing of Terrorism Act 2009.
+          We collect this information to comply with New Zealands Anti-Money Laundering and Countering Financing of Terrorism Act 2009.
         </p>
       </div>
 

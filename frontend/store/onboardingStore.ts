@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { safeSetItem } from '@/lib/utils/storageUtils';
-import { OnboardingService, Step1Data } from '@/lib/services/onboardingService';
+import { OnboardingService } from '@/lib/services/onboardingService';
+import { Step1Data, Step2Data } from '@/types/onboarding';
 
 interface OnboardingData {
   // Personal Information (Step 1)
@@ -16,7 +17,7 @@ interface OnboardingData {
   employmentType?: 'full_time' | 'part_time' | 'self_employed' | 'contract' | 'casual' | 'unemployed' | 'retired' | 'student';
   employer?: string;
   jobTitle?: string;
-  employmentDuration?: string;
+  employmentDuration?: 'less_than_3_months' | '3_to_6_months' | '6_months_to_1_year' | '1_to_2_years' | '2_to_5_years' | 'more_than_5_years';
   monthlyIncome?: number;
   otherIncome?: number;
   
@@ -66,7 +67,9 @@ interface OnboardingStore {
   isLoaded: boolean;
   setField: (field: keyof OnboardingData, value: any) => void;
   saveStep1ToBackend: () => Promise<void>;
+  saveStep2ToBackend: () => Promise<void>;
   loadStep1FromBackend: () => Promise<void>;
+  loadStep2FromBackend: () => Promise<void>;
   reset: () => void;
   markSubmitted: () => void;
   loadFromStorage: () => void;
@@ -232,6 +235,60 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
       throw error;
     }
   },
+  saveStep2ToBackend: async () => {
+    const { data } = get();
+    
+    // Extract Step 2 fields - same pattern as Step 1
+    const step2Data: Step2Data = {
+      employmentType: data.employmentType || 'unemployed',
+      employer: data.employer || undefined,
+      jobTitle: data.jobTitle || undefined,
+      employmentDuration: data.employmentDuration || undefined,
+      monthlyIncome: data.monthlyIncome || undefined,
+      otherIncome: data.otherIncome || undefined,
+    };
+  
+    // Validate required fields - same pattern as Step 1
+    if (!step2Data.employmentType) {
+      throw new Error('Employment type is required');
+    }
+  
+    set((state) => ({
+      data: { 
+        ...state.data, 
+        isSyncing: true, 
+        syncError: undefined 
+      }
+    }));
+  
+    try {
+      const savedData = await OnboardingService.saveStep2Data(step2Data);
+      
+      set((state) => ({
+        data: {
+          ...state.data,
+          ...savedData,
+          isSyncing: false,
+          lastSyncedAt: new Date().toISOString(),
+          syncError: undefined,
+        }
+      }));
+  
+      // Also save to localStorage after successful backend save
+      saveDataToStorage(get().data);
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save data';
+      set((state) => ({
+        data: {
+          ...state.data,
+          isSyncing: false,
+          syncError: errorMessage,
+        }
+      }));
+      throw error;
+    }
+  },
 
   loadStep1FromBackend: async () => {
     set((state) => ({
@@ -281,6 +338,64 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
       
     } catch (error) {
       console.error('Failed to load from backend:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
+      set((state) => ({
+        data: {
+          ...state.data,
+          isSyncing: false,
+          syncError: errorMessage,
+        }
+      }));
+      
+      // Don't throw error here - we can still use local data
+    }
+  },
+  loadStep2FromBackend: async () => {
+    set((state) => ({
+      data: { 
+        ...state.data, 
+        isSyncing: true, 
+        syncError: undefined 
+      }
+    }));
+  
+    try {
+      console.log('Loading Step 2 data from backend...');
+      const backendData = await OnboardingService.getStep2Data();
+      
+      if (backendData) {
+        console.log('Backend Step 2 data received:', backendData);
+        set((state) => ({
+          data: {
+            ...state.data,
+            employmentType: backendData.employmentType,
+            employer: backendData.employer,
+            jobTitle: backendData.jobTitle,
+            employmentDuration: backendData.employmentDuration,
+            monthlyIncome: backendData.monthlyIncome,
+            otherIncome: backendData.otherIncome,
+            isSyncing: false,
+            lastSyncedAt: new Date().toISOString(),
+            syncError: undefined,
+          }
+        }));
+  
+        // Save to localStorage after successful load
+        saveDataToStorage(get().data);
+        console.log('Store updated with backend Step 2 data');
+      } else {
+        console.log('No backend Step 2 data found, keeping local data');
+        set((state) => ({
+          data: { 
+            ...state.data, 
+            isSyncing: false, 
+            syncError: undefined 
+          }
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Failed to load Step 2 from backend:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
       set((state) => ({
         data: {

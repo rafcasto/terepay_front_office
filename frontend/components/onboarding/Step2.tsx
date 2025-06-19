@@ -6,39 +6,123 @@ import { step2Schema, Step2FormData } from '@/lib/utils/validators';
 import { Input } from '@/components/ui/Input';
 import { Navigation } from './Navigation';
 import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { useState, useEffect } from 'react';
 
 export default function Step2() {
-  const { data, setField } = useOnboardingStore();
+  const { data, setField, saveStep2ToBackend } = useOnboardingStore();
+  const [isSaving, setIsSaving] = useState(false);
   
-  // Load saved data on component mount
-  useOnboardingPersistence();
+  // Load saved data and handle backend sync - SAME AS STEP 1
+  const { 
+    isLoaded, 
+    isInitializing, 
+    initError, 
+    isSyncing = false,
+    syncError = null,
+    lastSyncedAt
+  } = useOnboardingPersistence();
 
   const {
     register,
     formState: { errors, isValid },
     setValue,
-    watch
+    watch,
+    reset
   } = useForm<Step2FormData>({
     resolver: zodResolver(step2Schema),
     defaultValues: {
-      employmentType: data.employmentType as Step2FormData['employmentType'] || undefined,
-      employer: data.employer || '',
-      jobTitle: data.jobTitle || '',
-      employmentDuration: data.employmentDuration || '',
-      monthlyIncome: data.monthlyIncome || undefined,
-      otherIncome: data.otherIncome || 0,
+      employmentType: undefined,
+      employer: '',
+      jobTitle: '',
+      employmentDuration: '',
+      monthlyIncome: undefined,
+      otherIncome: 0,
     },
-    mode: 'onBlur'
+    mode: 'onBlur'  
   });
 
+  // Watch form values for real-time updates - SAME AS STEP 1
+  const formValues = watch();
+
+  // Update form when store data changes - SAME AS STEP 1
+  useEffect(() => {
+    if (isLoaded && !isSyncing) {
+      const storeData = {
+        employmentType: data.employmentType || undefined,
+        employer: data.employer || '',
+        jobTitle: data.jobTitle || '',
+        employmentDuration: data.employmentDuration || '',
+        monthlyIncome: data.monthlyIncome || undefined,
+        otherIncome: data.otherIncome || 0,
+      };
+
+      reset(storeData);
+      console.log('Step 2 form reset with store data:', storeData);
+    }
+  }, [data, isLoaded, isSyncing, reset]);
+
+  // Update store when form values change - SAME AS STEP 1
   const updateField = (field: keyof Step2FormData, value: Step2FormData[typeof field]) => {
     setField(field, value);
     setValue(field, value);
   };
 
+  // Handle continue button - SAME PATTERN AS STEP 1
+  const handleContinue = async () => {
+    setIsSaving(true);
+
+    try {
+      // Get current form values
+      const currentValues = formValues as Step2FormData;
+      
+      // Update store with current form data
+      Object.entries(currentValues).forEach(([key, value]) => {
+        setField(key as keyof Step2FormData, value);
+      });
+
+      // Save to backend
+      await saveStep2ToBackend();
+      
+      // Navigate to next step on success
+      if (typeof window !== 'undefined') {
+        window.location.href = '/onboarding/3';
+      }
+      
+    } catch (error) {
+      console.error('Continue error:', error);
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Show loading state - SAME AS STEP 1
+  if (isInitializing || !isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-gray-600">Loading onboarding data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show initialization error - SAME AS STEP 1
+  if (initError) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-red-800 font-medium">Initialization Error</h3>
+          <p className="text-red-700 text-sm mt-1">{initError}</p>
+        </div>
+      </div>
+    );
+  }
+
   const employmentType = watch('employmentType');
   const isEmployed = employmentType && !['unemployed', 'retired'].includes(employmentType);
-  const needsOtherIncome = ['unemployed', 'retired'].includes(employmentType);
 
   return (
     <div className="space-y-6">
@@ -47,13 +131,37 @@ export default function Step2() {
         <p className="text-sm text-gray-600 mb-4">This information helps us assess your ability to repay and comply with responsible lending requirements.</p>
       </div>
 
+      {/* Sync Status - SAME AS STEP 1 */}
+      {(isSyncing || syncError || lastSyncedAt) && (
+        <div className={`p-3 rounded-lg border ${
+          syncError 
+            ? 'bg-red-50 border-red-200' 
+            : isSyncing 
+              ? 'bg-blue-50 border-blue-200'
+              : 'bg-green-50 border-green-200'
+        }`}>
+          <div className="flex items-center space-x-2">
+            {isSyncing && (
+              <LoadingSpinner size="sm" />
+            )}
+            <span className={`text-sm ${
+              syncError ? 'text-red-700' : isSyncing ? 'text-blue-700' : 'text-green-700'
+            }`}>
+              {syncError ? `Sync error: ${syncError}` : 
+               isSyncing ? 'Saving...' : 
+               `Last saved: ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : 'Unknown'}`}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Employment Type *
         </label>
         <select
           {...register('employmentType', {
-            onChange: (e) => updateField('employmentType', e.target.value)
+            onChange: (e) => updateField('employmentType', e.target.value || undefined)
           })}
           className={`w-full appearance-none border p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer transition-colors ${
             errors.employmentType ? 'border-red-300' : 'border-gray-300'
@@ -63,11 +171,8 @@ export default function Step2() {
           <option value="full_time">Full-time Employee</option>
           <option value="part_time">Part-time Employee</option>
           <option value="self_employed">Self-employed</option>
-          <option value="contract">Contractor</option>
-          <option value="casual">Casual Worker</option>
           <option value="unemployed">Unemployed</option>
           <option value="retired">Retired</option>
-          <option value="student">Student</option>
         </select>
         {errors.employmentType && (
           <p className="mt-1 text-sm text-red-600">{errors.employmentType.message}</p>
@@ -110,7 +215,7 @@ export default function Step2() {
             </label>
             <select
               {...register('employmentDuration', {
-                onChange: (e) => updateField('employmentDuration', e.target.value)
+                onChange: (e) => updateField('employmentDuration', e.target.value || undefined)
               })}
               className={`w-full appearance-none border p-3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white pr-10 cursor-pointer transition-colors ${
                 errors.employmentDuration ? 'border-red-300' : 'border-gray-300'
@@ -134,7 +239,7 @@ export default function Step2() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            {isEmployed ? 'Monthly Income *' : 'Primary Monthly Income *'}
+            Monthly Income *
           </label>
           <Input
             {...register('monthlyIncome', {
@@ -148,18 +253,15 @@ export default function Step2() {
             step="100"
             error={errors.monthlyIncome?.message}
           />
-          <p className="text-xs text-gray-500 mt-1">
-            {isEmployed ? 'After-tax income from employment' : 'Benefits, pension, or other regular income'}
-          </p>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            {needsOtherIncome ? 'Additional Income' : 'Other Income'}
+            Other Income
           </label>
           <Input
             {...register('otherIncome', {
-              onChange: (e) => updateField('otherIncome', parseFloat(e.target.value) || undefined),
+              onChange: (e) => updateField('otherIncome', parseFloat(e.target.value) || 0),
               valueAsNumber: true
             })}
             type="number"
@@ -169,31 +271,16 @@ export default function Step2() {
             step="100"
             error={errors.otherIncome?.message}
           />
-          <p className="text-xs text-gray-500 mt-1">Rental, investments, side work, etc.</p>
         </div>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800">
-              Income Verification
-            </h3>
-            <div className="mt-2 text-sm text-blue-700">
-              <p>
-                We may request payslips, bank statements, or other documentation to verify your income as part of our responsible lending assessment.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <Navigation step={2} isValid={isValid} />
+      {/* Continue Button - SAME AS STEP 1 */}
+      <Navigation 
+        step={2} 
+        isValid={isValid}
+        isLoading={isSaving || isSyncing}
+        onSubmit={handleContinue}
+      />
     </div>
   );
 }

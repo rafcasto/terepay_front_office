@@ -8,7 +8,13 @@ import { OnboardingService } from '@/lib/services/onboardingService';
  */
 export function useOnboardingPersistence() {
   const { user, loading: authLoading } = useAuth();
-  const { loadFromStorage, loadStep1FromBackend, isLoaded, data } = useOnboardingStore();
+  const { 
+    loadFromStorage, 
+    loadStep1FromBackend, 
+    loadStep2FromBackend, // Add this
+    isLoaded, 
+    data 
+  } = useOnboardingStore();
   const [hasInitialized, setHasInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
 
@@ -33,6 +39,7 @@ export function useOnboardingPersistence() {
         // Load data from backend (may override localStorage)
         if (mounted) {
           await loadStep1FromBackend();
+          await loadStep2FromBackend();
           console.log('Loaded from backend');
           setHasInitialized(true);
           setInitError(null);
@@ -51,7 +58,7 @@ export function useOnboardingPersistence() {
     return () => {
       mounted = false;
     };
-  }, [user, authLoading, hasInitialized, loadFromStorage, loadStep1FromBackend]);
+  }, [user, authLoading, hasInitialized, loadFromStorage, loadStep1FromBackend,loadStep2FromBackend]);
 
   return {
     isLoaded: isLoaded && hasInitialized,

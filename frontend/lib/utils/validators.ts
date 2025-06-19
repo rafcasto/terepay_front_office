@@ -44,7 +44,7 @@ export function isStep1ApiCompatible(data: unknown): data is Step1FormData {
 
 // Fixed Step 2: Employment & Income Schema
 export const step2Schema = z.object({
-  employmentType: z.enum(['full_time', 'part_time', 'self_employed', 'unemployed', 'retired'], {
+  employmentType: z.enum(['full_time', 'part_time', 'self_employed','contract','casual', 'unemployed', 'retired','student'], {
     required_error: 'Employment type is required'
   }),
   employer: z.string().optional(),
@@ -102,6 +102,11 @@ export const step2Schema = z.object({
 
 export type Step2FormData = z.infer<typeof step2Schema>;
 
+// Type guard to ensure Step 2 data is API compatible
+export function isStep2ApiCompatible(data: unknown): data is Step2FormData {
+  return step2Schema.safeParse(data).success;
+}
+
 // Step 3: Monthly Expenses Schema
 export const step3Schema = z.object({
   rent: z.number().min(0, 'Amount cannot be negative').max(10000, 'Please enter a realistic amount'),
@@ -109,6 +114,7 @@ export const step3Schema = z.object({
   debts: z.number().min(0, 'Amount cannot be negative').max(500000, 'Please enter a realistic amount'),
   dependents: z.number().min(0, 'Cannot be negative').max(10, 'Please enter a valid number'),
 });
+
 
 export type Step3FormData = z.infer<typeof step3Schema>;
 
