@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { safeSetItem } from '@/lib/utils/storageUtils';
 import { OnboardingService } from '@/lib/services/onboardingService';
-import { Step1Data, Step2Data } from '@/types/onboarding';
+import { Step1Data, Step2Data,Step3Data } from '@/types/onboarding';
 
 interface OnboardingData {
   // Personal Information (Step 1)
@@ -68,8 +68,10 @@ interface OnboardingStore {
   setField: (field: keyof OnboardingData, value: any) => void;
   saveStep1ToBackend: () => Promise<void>;
   saveStep2ToBackend: () => Promise<void>;
+  saveStep3ToBackend: () =>  Promise<void>;
   loadStep1FromBackend: () => Promise<void>;
   loadStep2FromBackend: () => Promise<void>;
+  loadStep3FromBackend: () => Promise<void>;
   reset: () => void;
   markSubmitted: () => void;
   loadFromStorage: () => void;
@@ -289,6 +291,142 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
       throw error;
     }
   },
+  saveStep3ToBackend: async () => {
+    const { data } = get();
+    
+    // Extract Step 3 fields
+    const step3Data: Step3Data = {
+      rent: data.rent || 0,
+      monthlyExpenses: data.monthlyExpenses || 0,
+      debts: data.debts || 0,
+      dependents: data.dependents || 0,
+    };
+  
+    // Validate required fields
+    const requiredFields: Array<keyof Step3Data> = [
+      'rent', 'monthlyExpenses', 'debts', 'dependents'
+    ];
+    
+    const missingFields = requiredFields.filter(field => {
+      const value = step3Data[field];
+      return value === undefined || value === null;
+    });
+    
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+    }
+  
+    // Validate ranges
+    if (step3Data.rent < 0 || step3Data.rent > 10000) {
+      throw new Error('Rent must be between 0 and 10,000');
+    }
+    if (step3Data.monthlyExpenses < 0 || step3Data.monthlyExpenses > 20000) {
+      throw new Error('Monthly expenses must be between 0 and 20,000');
+    }
+    if (step3Data.debts < 0 || step3Data.debts > 500000) {
+      throw new Error('Debts must be between 0 and 500,000');
+    }
+    if (step3Data.dependents < 0 || step3Data.dependents > 10) {
+      throw new Error('Dependents must be between 0 and 10');
+    }
+  
+    set((state) => ({
+      data: { 
+        ...state.data, 
+        isSyncing: true, 
+        syncError: undefined 
+      }
+    }));
+  
+    try {
+      const savedData = await OnboardingService.saveStep3Data(step3Data);
+      
+      set((state) => ({
+        data: {
+          ...state.data,
+          rent: savedData.rent,
+          monthlyExpenses: savedData.monthlyExpenses,
+          debts: savedData.debts,
+          dependents: savedData.dependents,
+          isSyncing: false,
+          lastSyncedAt: new Date().toISOString(),
+          syncError: undefined,
+        }
+      }));
+  
+      // Also save to localStorage after successful backend save
+      saveDataToStorage(get().data);
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save data';
+      set((state) => ({
+        data: {
+          ...state.data,
+          isSyncing: false,
+          syncError: errorMessage,
+        }
+      }));
+      
+      throw error;
+    }
+  },
+  
+  loadStep3FromBackend: async () => {
+    set((state) => ({
+      data: { 
+        ...state.data, 
+        isSyncing: true, 
+        syncError: undefined 
+      }
+    }));
+  
+    try {
+      console.log('Loading Step 3 data from backend...');
+      const backendData = await OnboardingService.getStep3Data();
+      
+      if (backendData) {
+        console.log('Backend Step 3 data received:', backendData);
+        set((state) => ({
+          data: {
+            ...state.data,
+            rent: backendData.rent,
+            monthlyExpenses: backendData.monthlyExpenses,
+            debts: backendData.debts,
+            dependents: backendData.dependents,
+            isSyncing: false,
+            lastSyncedAt: new Date().toISOString(),
+            syncError: undefined,
+          }
+        }));
+  
+        // Save to localStorage after successful load
+        saveDataToStorage(get().data);
+        console.log('Store updated with backend Step 3 data');
+      } else {
+        console.log('No backend Step 3 data found, keeping local data');
+        set((state) => ({
+          data: { 
+            ...state.data, 
+            isSyncing: false, 
+            syncError: undefined 
+          }
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Failed to load Step 3 from backend:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
+      set((state) => ({
+        data: {
+          ...state.data,
+          isSyncing: false,
+          syncError: errorMessage,
+        }
+      }));
+      
+      // Don't throw error here - we can still use local data
+    }
+  },
 
   loadStep1FromBackend: async () => {
     set((state) => ({
@@ -408,7 +546,7 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
       // Don't throw error here - we can still use local data
     }
   },
-
+  
   reset: () => {
     const resetData: OnboardingData = { 
       submitted: false, 

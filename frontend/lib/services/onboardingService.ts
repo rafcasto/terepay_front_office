@@ -6,10 +6,14 @@ import {
   Step2Data,
   Step2ApiData,
   Step2ResponseData,
+  Step3Data,
+  Step3ApiData,
+  Step3ResponseData,
   OnboardingStatusData,
   OnboardingStatus,
   SavedStep1Data,
-  SavedStep2Data
+  SavedStep2Data,
+  SavedStep3Data
 } from '@/types/onboarding';
 
 
@@ -184,6 +188,79 @@ export class OnboardingService {
       };
     } catch (error) {
       console.error('Failed to get onboarding status:', error);
+      throw error;
+    }
+  }
+
+  // Add these methods to your frontend/lib/services/onboardingService.ts file
+
+/**
+ * Convert Step 3 domain model to API format
+ */
+private static toStep3ApiFormat(data: Step3Data): Step3ApiData {
+  return {
+    rent: data.rent,
+    monthlyExpenses: data.monthlyExpenses,
+    debts: data.debts,
+    dependents: data.dependents,
+  };
+}
+
+  /**
+   * Convert Step 3 API response to domain model
+   */
+  private static fromStep3ApiFormat(data: Step3ResponseData): SavedStep3Data {
+    return {
+      rent: data.rent,
+      monthlyExpenses: data.monthlyExpenses,
+      debts: data.debts,
+      dependents: data.dependents,
+      stepCompleted: data.stepCompleted,
+      isCompleted: data.isCompleted,
+    };
+  }
+
+  /**
+   * Save Step 3 data to the backend
+   */
+  static async saveStep3Data(data: Step3Data): Promise<SavedStep3Data> {
+    try {
+      const apiData = this.toStep3ApiFormat(data);
+      
+      const response = await apiClient.post<Step3ResponseData, Step3ApiData>(
+        '/api/onboarding/step3',
+        apiData
+      );
+      
+      if (!response) {
+        throw new Error('No response received from server');
+      }
+      
+      return this.fromStep3ApiFormat(response);
+    } catch (error) {
+      console.error('Failed to save Step 3 data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get Step 3 data from the backend
+   */
+  static async getStep3Data(): Promise<SavedStep3Data | null> {
+    try {
+      const response = await apiClient.get<Step3ResponseData>('/api/onboarding/step3');
+      
+      if (!response) {
+        return null;
+      }
+      
+      return this.fromStep3ApiFormat(response);
+    } catch (error) {
+      console.error('Failed to get Step 3 data:', error);
+      // Return null if no data found (user hasn't started step 3)
+      if (error instanceof Error && error.message.includes('No Step 3 data found')) {
+        return null;
+      }
       throw error;
     }
   }

@@ -12,6 +12,7 @@ export function useOnboardingPersistence() {
     loadFromStorage, 
     loadStep1FromBackend, 
     loadStep2FromBackend, // Add this
+    loadStep3FromBackend,
     isLoaded, 
     data 
   } = useOnboardingStore();
@@ -40,6 +41,7 @@ export function useOnboardingPersistence() {
         if (mounted) {
           await loadStep1FromBackend();
           await loadStep2FromBackend();
+          await loadStep3FromBackend();
           console.log('Loaded from backend');
           setHasInitialized(true);
           setInitError(null);
@@ -58,7 +60,7 @@ export function useOnboardingPersistence() {
     return () => {
       mounted = false;
     };
-  }, [user, authLoading, hasInitialized, loadFromStorage, loadStep1FromBackend,loadStep2FromBackend]);
+  }, [user, authLoading, hasInitialized, loadFromStorage, loadStep1FromBackend,loadStep2FromBackend,loadStep3FromBackend]);
 
   return {
     isLoaded: isLoaded && hasInitialized,

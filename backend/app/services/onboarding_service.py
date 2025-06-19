@@ -228,3 +228,79 @@ class OnboardingService:
         except Exception as e:
             logger.error(f"Failed to get complete user data: {e}")
             return False, str(e)
+        
+
+    @staticmethod
+    def save_step3_data(firebase_uid, step3_data):
+        """Save or update Step 3 onboarding data."""
+        try:
+            conn = DatabaseService.get_connection()
+            cursor = conn.cursor()
+            
+            # Prepare the data
+            rent = step3_data.get('rent')
+            monthly_expenses = step3_data.get('monthlyExpenses')
+            debts = step3_data.get('debts')
+            dependents = step3_data.get('dependents')
+            
+            # Validate that at least one field is provided
+            if all(v is None for v in [rent, monthly_expenses, debts, dependents]):
+                return False, "At least one Step 3 field must be provided"
+            
+            # Use UPSERT to handle both insert and update
+            cursor.execute("""
+                INSERT INTO onboarding_applications (
+                    firebase_uid, rent, monthly_expenses, debts, dependents, step_completed
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (firebase_uid) 
+                DO UPDATE SET
+                    rent = EXCLUDED.rent,
+                    monthly_expenses = EXCLUDED.monthly_expenses,
+                    debts = EXCLUDED.debts,
+                    dependents = EXCLUDED.dependents,
+                    step_completed = GREATEST(onboarding_applications.step_completed, 3),
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING id, firebase_uid, rent, monthly_expenses, debts, dependents,
+                        step_completed, created_at, updated_at;
+            """, (
+                firebase_uid, rent, monthly_expenses, debts, dependents, 3
+            ))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return True, dict(result)
+            
+        except Exception as e:
+            logger.error(f"Failed to save Step 3 data: {e}")
+            return False, str(e)
+
+    @staticmethod
+    def get_step3_data(firebase_uid):
+        """Get Step 3 onboarding data for a user."""
+        try:
+            conn = DatabaseService.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT 
+                    id, firebase_uid, rent, monthly_expenses, debts, dependents,
+                    step_completed, is_completed, created_at, updated_at
+                FROM onboarding_applications 
+                WHERE firebase_uid = %s
+            """, (firebase_uid,))
+            
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if result:
+                return True, dict(result)
+            else:
+                return True, None
+                
+        except Exception as e:
+            logger.error(f"Failed to get Step 3 data: {e}")
+            return False, str(e)

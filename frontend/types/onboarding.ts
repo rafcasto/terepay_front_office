@@ -129,3 +129,51 @@ export function isStep2ApiData(data: unknown): data is Step2ApiData {
     (obj.otherIncome === undefined || typeof obj.otherIncome === 'number')
   );
 }
+
+// Step 3 interfaces with proper API compatibility
+export interface Step3ApiData extends ApiCompatible {
+  rent: number;
+  monthlyExpenses: number;
+  debts: number;
+  dependents: number;
+}
+
+export interface Step3ResponseData extends Step3ApiData {
+  id?: number;
+  firebase_uid?: string;
+  stepCompleted: number;
+  isCompleted: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Domain model interface for Step 3 (for frontend components)
+export interface Step3Data {
+  rent: number;
+  monthlyExpenses: number;
+  debts: number;
+  dependents: number;
+}
+
+// Extended data interface with backend metadata
+export interface SavedStep3Data extends Step3Data {
+  stepCompleted: number;
+  isCompleted: boolean;
+}
+
+// Type guard for Step 3 API data validation
+export function isStep3ApiData(data: unknown): data is Step3ApiData {
+  if (!data || typeof data !== 'object') return false;
+  
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj.rent === 'number' &&
+    typeof obj.monthlyExpenses === 'number' &&
+    typeof obj.debts === 'number' &&
+    typeof obj.dependents === 'number' &&
+    obj.rent >= 0 && obj.rent <= 10000 &&
+    obj.monthlyExpenses >= 0 && obj.monthlyExpenses <= 20000 &&
+    obj.debts >= 0 && obj.debts <= 500000 &&
+    obj.dependents >= 0 && obj.dependents <= 10
+  );
+}

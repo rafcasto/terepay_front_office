@@ -354,3 +354,154 @@ def initialize_onboarding():
             500,
             'INTERNAL_ERROR'
         )
+
+@onboarding_bp.route('/step3', methods=['POST'])
+@verify_firebase_token
+def save_step3():
+    """Save Step 3 onboarding data."""
+    try:
+        # Get user ID from Firebase token
+        firebase_uid = request.firebase_user['uid']
+        
+        # Get JSON data from request
+        step3_data = request.get_json()
+        
+        if not step3_data:
+            return error_response(
+                "No data provided",
+                400,
+                'NO_DATA'
+            )
+        
+        # Validate required fields
+        required_fields = ['rent', 'monthlyExpenses', 'debts', 'dependents']
+        missing_fields = []
+        
+        for field in required_fields:
+            value = step3_data.get(field)
+            if value is None:
+                missing_fields.append(field)
+        
+        if missing_fields:
+            return error_response(
+                f"Missing required fields: {', '.join(missing_fields)}",
+                400,
+                'MISSING_REQUIRED_FIELDS'
+            )
+        
+        # Validate numeric fields
+        numeric_fields = ['rent', 'monthlyExpenses', 'debts', 'dependents']
+        for field in numeric_fields:
+            value = step3_data.get(field)
+            if value is not None and not isinstance(value, (int, float)):
+                return error_response(
+                    f"Field '{field}' must be a number",
+                    400,
+                    'INVALID_FIELD_TYPE'
+                )
+            
+            # Validate ranges
+            if field == 'rent' and value is not None and (value < 0 or value > 10000):
+                return error_response(
+                    "Rent must be between 0 and 10,000",
+                    400,
+                    'INVALID_RENT_AMOUNT'
+                )
+            elif field == 'monthlyExpenses' and value is not None and (value < 0 or value > 20000):
+                return error_response(
+                    "Monthly expenses must be between 0 and 20,000",
+                    400,
+                    'INVALID_EXPENSES_AMOUNT'
+                )
+            elif field == 'debts' and value is not None and (value < 0 or value > 500000):
+                return error_response(
+                    "Debts must be between 0 and 500,000",
+                    400,
+                    'INVALID_DEBTS_AMOUNT'
+                )
+            elif field == 'dependents' and value is not None and (value < 0 or value > 10):
+                return error_response(
+                    "Dependents must be between 0 and 10",
+                    400,
+                    'INVALID_DEPENDENTS_COUNT'
+                )
+        
+        # Save to database
+        success, result = OnboardingService.save_step3_data(firebase_uid, step3_data)
+        
+        if success:
+            # Transform database format to frontend format for response
+            frontend_data = {
+                'rent': float(result.get('rent')) if result.get('rent') is not None else None,
+                'monthlyExpenses': float(result.get('monthly_expenses')) if result.get('monthly_expenses') is not None else None,
+                'debts': float(result.get('debts')) if result.get('debts') is not None else None,
+                'dependents': int(result.get('dependents')) if result.get('dependents') is not None else None,
+                'stepCompleted': result.get('step_completed', 3),
+                'isCompleted': result.get('is_completed', False)
+            }
+            
+            return success_response(
+                frontend_data,
+                "Step 3 data saved successfully"
+            )
+        else:
+            return error_response(
+                f"Failed to save Step 3 data: {result}",
+                500,
+                'DATABASE_ERROR'
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in save_step3: {e}")
+        return error_response(
+            "Internal server error",
+            500,
+            'INTERNAL_ERROR'
+        )
+
+@onboarding_bp.route('/step3', methods=['GET'])
+@verify_firebase_token
+def get_step3():
+    """Get Step 3 onboarding data."""
+    try:
+        # Get user ID from Firebase token
+        firebase_uid = request.firebase_user['uid']
+        
+        # Get data from database
+        success, result = OnboardingService.get_step3_data(firebase_uid)
+        
+        if success:
+            if result:
+                # Transform database format to frontend format
+                frontend_data = {
+                    'rent': float(result.get('rent')) if result.get('rent') is not None else None,
+                    'monthlyExpenses': float(result.get('monthly_expenses')) if result.get('monthly_expenses') is not None else None,
+                    'debts': float(result.get('debts')) if result.get('debts') is not None else None,
+                    'dependents': int(result.get('dependents')) if result.get('dependents') is not None else None,
+                    'stepCompleted': result.get('step_completed', 0),
+                    'isCompleted': result.get('is_completed', False)
+                }
+                
+                return success_response(
+                    frontend_data,
+                    "Step 3 data retrieved successfully"
+                )
+            else:
+                return success_response(
+                    {},
+                    "No Step 3 data found for user"
+                )
+        else:
+            return error_response(
+                f"Failed to retrieve Step 3 data: {result}",
+                500,
+                'DATABASE_ERROR'
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in get_step3: {e}")
+        return error_response(
+            "Internal server error",
+            500,
+            'INTERNAL_ERROR'
+        )
