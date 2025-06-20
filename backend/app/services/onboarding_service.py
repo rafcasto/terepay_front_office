@@ -383,3 +383,82 @@ class OnboardingService:
         except Exception as e:
             logger.error(f"Failed to get Step 4 data: {e}")
             return False, str(e)
+
+    @staticmethod
+    def save_step5_data(firebase_uid, step5_data):
+        """Save or update Step 5 onboarding data."""
+        try:
+            conn = DatabaseService.get_connection()
+            cursor = conn.cursor()
+            
+            # Prepare the data
+            loan_amount = step5_data.get('loanAmount')
+            loan_purpose = step5_data.get('loanPurpose')
+            loan_term = step5_data.get('loanTerm')
+            understands_terms = step5_data.get('understandsTerms', False)
+            can_afford_repayments = step5_data.get('canAffordRepayments', False)
+            has_received_advice = step5_data.get('hasReceivedAdvice', False)
+            
+            # Use UPSERT to handle both insert and update
+            cursor.execute("""
+                INSERT INTO onboarding_applications (
+                    firebase_uid, loan_amount, loan_purpose, loan_term,
+                    understands_terms, can_afford_repayments, has_received_advice, step_completed
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (firebase_uid) 
+                DO UPDATE SET
+                    loan_amount = EXCLUDED.loan_amount,
+                    loan_purpose = EXCLUDED.loan_purpose,
+                    loan_term = EXCLUDED.loan_term,
+                    understands_terms = EXCLUDED.understands_terms,
+                    can_afford_repayments = EXCLUDED.can_afford_repayments,
+                    has_received_advice = EXCLUDED.has_received_advice,
+                    step_completed = GREATEST(onboarding_applications.step_completed, 5),
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING id, firebase_uid, loan_amount, loan_purpose, loan_term,
+                        understands_terms, can_afford_repayments, has_received_advice,
+                        step_completed, created_at, updated_at;
+            """, (
+                firebase_uid, loan_amount, loan_purpose, loan_term,
+                understands_terms, can_afford_repayments, has_received_advice, 5
+            ))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return True, dict(result)
+            
+        except Exception as e:
+            logger.error(f"Failed to save Step 5 data: {e}")
+            return False, str(e)
+
+    @staticmethod
+    def get_step5_data(firebase_uid):
+        """Get Step 5 onboarding data for a user."""
+        try:
+            conn = DatabaseService.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT 
+                    id, firebase_uid, loan_amount, loan_purpose, loan_term,
+                    understands_terms, can_afford_repayments, has_received_advice,
+                    step_completed, is_completed, created_at, updated_at
+                FROM onboarding_applications 
+                WHERE firebase_uid = %s
+            """, (firebase_uid,))
+            
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if result:
+                return True, dict(result)
+            else:
+                return True, None
+                
+        except Exception as e:
+            logger.error(f"Failed to get Step 5 data: {e}")
+            return False, str(e)

@@ -578,3 +578,142 @@ def get_step4():
     except Exception as e:
         logger.error(f"Error in get_step4: {e}")
         return error_response("Internal server error", 500, 'INTERNAL_ERROR')
+    
+@onboarding_bp.route('/step5', methods=['POST'])
+@verify_firebase_token
+def save_step5():
+    """Save Step 5 onboarding data."""
+    try:
+        # Get user ID from Firebase token
+        firebase_uid = request.firebase_user['uid']
+        
+        # Get JSON data from request
+        step5_data = request.get_json()
+        
+        if not step5_data:
+            return error_response(
+                "No data provided",
+                400,
+                'NO_DATA'
+            )
+        
+        # Validate required fields
+        required_fields = ['loanAmount', 'loanPurpose']
+        missing_fields = []
+        
+        for field in required_fields:
+            value = step5_data.get(field)
+            if value is None or value == '':
+                missing_fields.append(field)
+        
+        if missing_fields:
+            return error_response(
+                f"Missing required fields: {', '.join(missing_fields)}",
+                400,
+                'MISSING_REQUIRED_FIELDS'
+            )
+        
+        # Validate loan amount
+        loan_amount = step5_data.get('loanAmount')
+        if loan_amount is not None:
+            if not isinstance(loan_amount, (int, float)) or loan_amount < 100 or loan_amount > 2000:
+                return error_response(
+                    "Loan amount must be between $100 and $2,000",
+                    400,
+                    'INVALID_LOAN_AMOUNT'
+                )
+        
+        # Validate boolean declarations
+        declarations = ['understandsTerms', 'canAffordRepayments', 'hasReceivedAdvice']
+        for declaration in declarations:
+            value = step5_data.get(declaration, False)
+            if not value:
+                return error_response(
+                    f"All responsible lending declarations must be acknowledged",
+                    400,
+                    'MISSING_DECLARATIONS'
+                )
+        
+        # Save to database
+        success, result = OnboardingService.save_step5_data(firebase_uid, step5_data)
+        
+        if success:
+            # Transform database format to frontend format for response
+            frontend_data = {
+                'loanAmount': float(result.get('loan_amount')) if result.get('loan_amount') else None,
+                'loanPurpose': result.get('loan_purpose'),
+                'loanTerm': result.get('loan_term'),
+                'understandsTerms': result.get('understands_terms', False),
+                'canAffordRepayments': result.get('can_afford_repayments', False),
+                'hasReceivedAdvice': result.get('has_received_advice', False),
+                'stepCompleted': result.get('step_completed', 5),
+                'isCompleted': result.get('is_completed', False)
+            }
+            
+            return success_response(
+                frontend_data,
+                "Step 5 data saved successfully"
+            )
+        else:
+            return error_response(
+                f"Failed to save Step 5 data: {result}",
+                500,
+                'DATABASE_ERROR'
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in save_step5: {e}")
+        return error_response(
+            "Internal server error",
+            500,
+            'INTERNAL_ERROR'
+        )
+
+@onboarding_bp.route('/step5', methods=['GET'])
+@verify_firebase_token
+def get_step5():
+    """Get Step 5 onboarding data."""
+    try:
+        # Get user ID from Firebase token
+        firebase_uid = request.firebase_user['uid']
+        
+        # Get data from database
+        success, result = OnboardingService.get_step5_data(firebase_uid)
+        
+        if success:
+            if result:
+                # Transform database format to frontend format
+                frontend_data = {
+                    'loanAmount': float(result.get('loan_amount')) if result.get('loan_amount') else None,
+                    'loanPurpose': result.get('loan_purpose'),
+                    'loanTerm': result.get('loan_term'),
+                    'understandsTerms': result.get('understands_terms', False),
+                    'canAffordRepayments': result.get('can_afford_repayments', False),
+                    'hasReceivedAdvice': result.get('has_received_advice', False),
+                    'stepCompleted': result.get('step_completed', 0),
+                    'isCompleted': result.get('is_completed', False)
+                }
+                
+                return success_response(
+                    frontend_data,
+                    "Step 5 data retrieved successfully"
+                )
+            else:
+                return success_response(
+                    {},
+                    "No Step 5 data found for user"
+                )
+        else:
+            return error_response(
+                f"Failed to retrieve Step 5 data: {result}",
+                500,
+                'DATABASE_ERROR'
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in get_step5: {e}")
+        return error_response(
+            "Internal server error",
+            500,
+            'INTERNAL_ERROR'
+        )

@@ -210,3 +210,38 @@ export interface SavedStep4Data extends Step4Data {
   stepCompleted: number;
   isCompleted: boolean;
 }
+
+// Add Step 5 types
+export interface Step5Data {
+  loanAmount?: number;
+  loanPurpose: string;
+  loanTerm?: string;
+  understandsTerms: boolean;
+  canAffordRepayments: boolean;
+  hasReceivedAdvice: boolean;
+}
+
+export interface Step5ApiData extends ApiCompatible{
+  loanAmount?: number;
+  loanPurpose: string;
+  loanTerm?: string;
+  understandsTerms: boolean;
+  canAffordRepayments: boolean;
+  hasReceivedAdvice: boolean;
+}
+
+export interface Step5ResponseData {
+  loanAmount?: number;
+  loanPurpose?: string;
+  loanTerm?: string;
+  understandsTerms: boolean;
+  canAffordRepayments: boolean;
+  hasReceivedAdvice: boolean;
+  stepCompleted: number;
+  isCompleted: boolean;
+}
+
+export interface SavedStep5Data extends Step5Data {
+  stepCompleted: number;
+  isCompleted: boolean;
+}

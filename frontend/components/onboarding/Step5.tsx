@@ -5,34 +5,99 @@ import { useOnboardingStore } from '@/store/onboardingStore';
 import { step5Schema, Step5FormData } from '@/lib/utils/validators';
 import { Input } from '@/components/ui/Input';
 import { Navigation } from './Navigation';
-import { useEffect, useState } from 'react';
 import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { useState, useEffect } from 'react';
 
 export default function Step5() {
-  const { data, setField } = useOnboardingStore();
+  const { data, setField, saveStep5ToBackend } = useOnboardingStore();
+  const [isSaving, setIsSaving] = useState(false);
   const [loanTerm] = useState(process.env.NEXT_PUBLIC_LOAN_TERM || '8 weeks');
   const [interestRate] = useState(process.env.NEXT_PUBLIC_INTEREST_RATE || '5');
   
-  // Load saved data on component mount
-  useOnboardingPersistence();
+  // Load saved data and handle backend sync - SAME AS STEP 2
+  const { 
+    isLoaded, 
+    isInitializing, 
+    initError, 
+    isSyncing = false,
+    syncError = null,
+    lastSyncedAt
+  } = useOnboardingPersistence();
 
   const {
     register,
     formState: { errors, isValid },
     setValue,
-    watch
+    watch,
+    reset
   } = useForm<Step5FormData>({
     resolver: zodResolver(step5Schema),
     defaultValues: {
-      loanAmount: data.loanAmount || undefined,
-      loanPurpose: data.loanPurpose || '',
-      loanTerm: data.loanTerm || '',
-      understandsTerms: data.understandsTerms || false,
-      canAffordRepayments: data.canAffordRepayments || false,
-      hasReceivedAdvice: data.hasReceivedAdvice || false,
+      loanAmount: undefined,
+      loanPurpose: '',
+      loanTerm: '',
+      understandsTerms: false,
+      canAffordRepayments: false,
+      hasReceivedAdvice: false,
     },
-    mode: 'onBlur'
+    mode: 'onBlur'  
   });
+
+  // Watch form values for real-time updates - SAME AS STEP 2
+  const formValues = watch();
+
+  // Update form when store data changes - SAME AS STEP 2
+  useEffect(() => {
+    if (isLoaded && !isSyncing) {
+      const storeData = {
+        loanAmount: data.loanAmount || undefined,
+        loanPurpose: data.loanPurpose || '',
+        loanTerm: data.loanTerm || loanTerm,
+        understandsTerms: data.understandsTerms || false,
+        canAffordRepayments: data.canAffordRepayments || false,
+        hasReceivedAdvice: data.hasReceivedAdvice || false,
+      };
+
+      reset(storeData);
+      console.log('Step 5 form reset with store data:', storeData);
+    }
+  }, [data, isLoaded, isSyncing, reset, loanTerm]);
+
+  // Update store when form values change - SAME AS STEP 2
+  const updateField = (field: keyof Step5FormData, value: Step5FormData[typeof field]) => {
+    setField(field, value);
+    setValue(field, value);
+  };
+
+  // Handle continue button - SAME PATTERN AS STEP 2
+  const handleContinue = async () => {
+    setIsSaving(true);
+
+    try {
+      // Get current form values
+      const currentValues = formValues as Step5FormData;
+      
+      // Update store with current form data
+      Object.entries(currentValues).forEach(([key, value]) => {
+        setField(key as keyof Step5FormData, value);
+      });
+
+      // Save to backend
+      await saveStep5ToBackend();
+      
+      // Navigate to next step on success
+      if (typeof window !== 'undefined') {
+        window.location.href = '/onboarding/6';
+      }
+      
+    } catch (error) {
+      console.error('Continue error:', error);
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Set the fixed loan term when component mounts
   useEffect(() => {
@@ -40,12 +105,7 @@ export default function Step5() {
     setValue('loanTerm', loanTerm);
   }, [loanTerm, setField, setValue]);
 
-  const updateField = (field: keyof Step5FormData, value: Step5FormData[typeof field]) => {
-    setField(field, value);
-    setValue(field, value);
-  };
-
-  // Calculate repayment amounts - UPDATED FOR FORTNIGHTLY PAYMENTS
+  // Calculate repayment amounts
   const loanAmount = watch('loanAmount') || 0;
   const calculateRepayment = (amount: number) => {
     if (!amount) return 0;
@@ -56,16 +116,39 @@ export default function Step5() {
   };
 
   const totalRepayment = calculateRepayment(loanAmount);
-  const fortnightlyRepayment = loanAmount ? totalRepayment / 4 : 0; // 4 fortnightly payments instead of 8 weekly
+  const fortnightlyRepayment = loanAmount ? totalRepayment / 4 : 0;
 
-  // Affordability check - UPDATED FOR FORTNIGHTLY PAYMENTS
+  // Affordability check
   const totalIncome = (data.monthlyIncome || 0) + (data.otherIncome || 0);
   const totalExpenses = (data.rent || 0) + (data.monthlyExpenses || 0);
   const disposableIncome = totalIncome - totalExpenses;
-  const monthlyRepayment = fortnightlyRepayment * 2.17; // 2.17 fortnights per month (26 fortnights / 12 months)
+  const monthlyRepayment = fortnightlyRepayment * 2.17;
   const repaymentToIncomeRatio = disposableIncome > 0 ? (monthlyRepayment / disposableIncome) * 100 : 0;
+  const isAffordable = repaymentToIncomeRatio <= 30;
 
-  const isAffordable = repaymentToIncomeRatio <= 30; // 30% threshold
+  // Show loading state - SAME AS STEP 2
+  if (isInitializing || !isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-gray-600">Loading onboarding data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show initialization error - SAME AS STEP 2
+  if (initError) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-red-800 font-medium">Initialization Error</h3>
+          <p className="text-red-700 text-sm mt-1">{initError}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -73,6 +156,30 @@ export default function Step5() {
         <h2 className="text-xl font-bold mb-2 text-gray-800">Loan Details & Terms</h2>
         <p className="text-sm text-gray-600 mb-4">Specify your loan requirements and confirm your understanding of the terms.</p>
       </div>
+
+      {/* Sync Status - SAME AS STEP 2 */}
+      {(isSyncing || syncError || lastSyncedAt) && (
+        <div className={`p-3 rounded-lg border ${
+          syncError 
+            ? 'bg-red-50 border-red-200' 
+            : isSyncing 
+              ? 'bg-blue-50 border-blue-200'
+              : 'bg-green-50 border-green-200'
+        }`}>
+          <div className="flex items-center space-x-2">
+            {isSyncing && (
+              <LoadingSpinner size="sm" />
+            )}
+            <span className={`text-sm ${
+              syncError ? 'text-red-700' : isSyncing ? 'text-blue-700' : 'text-green-700'
+            }`}>
+              {syncError ? `Sync error: ${syncError}` : 
+               isSyncing ? 'Saving...' : 
+               `Last saved: ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString() : 'Never'}`}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -259,7 +366,13 @@ export default function Step5() {
         )}
       </div>
 
-      <Navigation step={5} isValid={isValid} />
+      {/* Continue Button - SAME AS STEP 2 */}
+      <Navigation 
+        step={5} 
+        isValid={isValid}
+        isLoading={isSaving || isSyncing}
+        onSubmit={handleContinue}
+      />
     </div>
   );
 }

@@ -10,6 +10,9 @@ import {
   Step3ApiData,
   Step4Data,
   Step4ApiData,
+  Step5ApiData,
+  Step5Data,
+  Step5ResponseData,
   Step4ResponseData,
   Step3ResponseData,
   OnboardingStatusData,
@@ -17,7 +20,8 @@ import {
   SavedStep1Data,
   SavedStep2Data,
   SavedStep3Data,
-  SavedStep4Data
+  SavedStep4Data,
+  SavedStep5Data
 } from '@/types/onboarding';
 
 
@@ -329,6 +333,81 @@ static async getStep4Data(): Promise<SavedStep4Data | null> {
   } catch (error) {
     console.error('Failed to get Step 4 data:', error);
     if (error instanceof Error && error.message.includes('No Step 4 data found')) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Convert Step 5 domain model to API format
+ */
+private static toStep5ApiFormat(data: Step5Data): Step5ApiData {
+  return {
+    loanAmount: data.loanAmount,
+    loanPurpose: data.loanPurpose,
+    loanTerm: data.loanTerm,
+    understandsTerms: data.understandsTerms,
+    canAffordRepayments: data.canAffordRepayments,
+    hasReceivedAdvice: data.hasReceivedAdvice,
+  };
+}
+
+/**
+ * Convert Step 5 API response to domain model
+ */
+private static fromStep5ApiFormat(data: Step5ResponseData): SavedStep5Data {
+  return {
+    loanAmount: data.loanAmount,
+    loanPurpose: data.loanPurpose || '',
+    loanTerm: data.loanTerm,
+    understandsTerms: data.understandsTerms,
+    canAffordRepayments: data.canAffordRepayments,
+    hasReceivedAdvice: data.hasReceivedAdvice,
+    stepCompleted: data.stepCompleted,
+    isCompleted: data.isCompleted,
+  };
+}
+
+/**
+ * Save Step 5 data to the backend
+ */
+static async saveStep5Data(data: Step5Data): Promise<SavedStep5Data> {
+  try {
+    const apiData = this.toStep5ApiFormat(data);
+    
+    const response = await apiClient.post<Step5ResponseData, Step5ApiData>(
+      '/api/onboarding/step5',
+      apiData
+    );
+    
+    if (!response) {
+      throw new Error('No response received from server');
+    }
+    
+    return this.fromStep5ApiFormat(response);
+  } catch (error) {
+    console.error('Failed to save Step 5 data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get Step 5 data from the backend
+ */
+static async getStep5Data(): Promise<SavedStep5Data | null> {
+  try {
+    const response = await apiClient.get<Step5ResponseData>('/api/onboarding/step5');
+    
+    if (!response) {
+      return null;
+    }
+    
+    return this.fromStep5ApiFormat(response);
+  } catch (error) {
+    console.error('Failed to get Step 5 data:', error);
+    // Return null if no data found (user hasn't started step 5)
+    if (error instanceof Error && error.message.includes('No Step 5 data found')) {
       return null;
     }
     throw error;

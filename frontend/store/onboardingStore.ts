@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { safeSetItem } from '@/lib/utils/storageUtils';
 import { OnboardingService } from '@/lib/services/onboardingService';
-import { Step1Data, Step2Data,Step3Data,Step4Data } from '@/types/onboarding';
+import { Step1Data, Step2Data,Step3Data,Step4Data,Step5Data } from '@/types/onboarding';
 
 interface OnboardingData {
   // Personal Information (Step 1)
@@ -69,10 +69,12 @@ interface OnboardingStore {
   saveStep2ToBackend: () => Promise<void>;
   saveStep3ToBackend: () =>  Promise<void>;
   saveStep4ToBackend: () =>  Promise<void>;
+  saveStep5ToBackend: () => Promise<void>;  
   loadStep1FromBackend: () => Promise<void>;
   loadStep2FromBackend: () => Promise<void>;
   loadStep3FromBackend: () => Promise<void>;
   loadStep4FromBackend: () => Promise<void>;
+  loadStep5FromBackend: () => Promise<void>;
   reset: () => void;
   markSubmitted: () => void;
   loadFromStorage: () => void;
@@ -653,6 +655,90 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
       }));
       
       // Don't throw error here - we can still use local data
+    }
+  },
+  saveStep5ToBackend: async () => {
+    const state = get();
+    if (!state.data.loanAmount || !state.data.loanPurpose) {
+      throw new Error('Step 5 required fields missing');
+    }
+
+    set({ data: { ...state.data, isSyncing: true } });
+
+    try {
+      const step5Data: Step5Data = {
+        loanAmount: state.data.loanAmount!,
+        loanPurpose: state.data.loanPurpose!,
+        loanTerm: state.data.loanTerm,
+        understandsTerms: state.data.understandsTerms || false,
+        canAffordRepayments: state.data.canAffordRepayments || false,
+        hasReceivedAdvice: state.data.hasReceivedAdvice || false,
+      };
+
+      const savedData = await OnboardingService.saveStep5Data(step5Data);
+      
+      set({
+        data: {
+          ...state.data,
+          ...savedData,
+          isSyncing: false,
+          lastSyncedAt: new Date().toISOString(),
+          syncError: undefined,
+        }
+      });
+
+      // Save to localStorage backup
+      state.saveToStorage();
+      
+    } catch (error) {
+      console.error('Failed to save Step 5 to backend:', error);
+      set({
+        data: {
+          ...state.data,
+          isSyncing: false,
+          syncError: error instanceof Error ? error.message : 'Unknown error',
+        }
+      });
+      throw error;
+    }
+  },
+
+  loadStep5FromBackend: async () => {
+    const state = get();
+    set({ data: { ...state.data, isSyncing: true } });
+
+    try {
+      const savedData = await OnboardingService.getStep5Data();
+      
+      if (savedData) {
+        set({
+          data: {
+            ...state.data,
+            ...savedData,
+            isSyncing: false,
+            lastSyncedAt: new Date().toISOString(),
+            syncError: undefined,
+          }
+        });
+      } else {
+        set({
+          data: {
+            ...state.data,
+            isSyncing: false,
+            lastSyncedAt: new Date().toISOString(),
+            syncError: undefined,
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load Step 5 from backend:', error);
+      set({
+        data: {
+          ...state.data,
+          isSyncing: false,
+          syncError: error instanceof Error ? error.message : 'Unknown error',
+        }
+      });
     }
   },
   reset: () => {
