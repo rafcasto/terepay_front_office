@@ -717,3 +717,92 @@ def get_step5():
             500,
             'INTERNAL_ERROR'
         )
+    
+
+@onboarding_bp.route('/step6', methods=['POST'])
+@verify_firebase_token
+def save_step6():
+    """Save Step 6 onboarding data (document metadata only)."""
+    try:
+        firebase_uid = request.firebase_user['uid']
+        step6_data = request.get_json()
+        
+        if not step6_data:
+            return error_response("No data provided", 400, 'NO_DATA')
+        
+        # Validate that all required document fields are provided
+        required_fields = [
+            'identityDocumentName', 'identityDocumentSize', 'identityDocumentType',
+            'addressProofName', 'addressProofSize', 'addressProofType',
+            'incomeProofName', 'incomeProofSize', 'incomeProofType'
+        ]
+        missing_fields = [field for field in required_fields if not step6_data.get(field)]
+        
+        if missing_fields:
+            return error_response(f"Missing required fields: {', '.join(missing_fields)}", 400, 'MISSING_REQUIRED_FIELDS')
+        
+        # Save to database
+        success, result = OnboardingService.save_step6_data(firebase_uid, step6_data)
+        
+        if success:
+            frontend_data = {
+                'identityDocumentName': result.get('identity_document_name'),
+                'identityDocumentSize': result.get('identity_document_size'),
+                'identityDocumentType': result.get('identity_document_type'),
+                'identityDocumentUploadedAt': result.get('identity_document_uploaded_at').isoformat() if result.get('identity_document_uploaded_at') else None,
+                'addressProofName': result.get('address_proof_name'),
+                'addressProofSize': result.get('address_proof_size'),
+                'addressProofType': result.get('address_proof_type'),
+                'addressProofUploadedAt': result.get('address_proof_uploaded_at').isoformat() if result.get('address_proof_uploaded_at') else None,
+                'incomeProofName': result.get('income_proof_name'),
+                'incomeProofSize': result.get('income_proof_size'),
+                'incomeProofType': result.get('income_proof_type'),
+                'incomeProofUploadedAt': result.get('income_proof_uploaded_at').isoformat() if result.get('income_proof_uploaded_at') else None,
+                'stepCompleted': result.get('step_completed', 0),
+                'isCompleted': result.get('is_completed', False)
+            }
+            
+            return success_response(frontend_data, "Step 6 data saved successfully")
+        else:
+            return error_response(f"Failed to save Step 6 data: {result}", 500, 'DATABASE_ERROR')
+            
+    except Exception as e:
+        logger.error(f"Error in save_step6: {e}")
+        return error_response("Internal server error", 500, 'INTERNAL_ERROR')
+
+@onboarding_bp.route('/step6', methods=['GET'])
+@verify_firebase_token
+def get_step6():
+    """Get Step 6 onboarding data."""
+    try:
+        firebase_uid = request.firebase_user['uid']
+        success, result = OnboardingService.get_step6_data(firebase_uid)
+        
+        if success:
+            if result:
+                frontend_data = {
+                    'identityDocumentName': result.get('identity_document_name'),
+                    'identityDocumentSize': result.get('identity_document_size'),
+                    'identityDocumentType': result.get('identity_document_type'),
+                    'identityDocumentUploadedAt': result.get('identity_document_uploaded_at').isoformat() if result.get('identity_document_uploaded_at') else None,
+                    'addressProofName': result.get('address_proof_name'),
+                    'addressProofSize': result.get('address_proof_size'),
+                    'addressProofType': result.get('address_proof_type'),
+                    'addressProofUploadedAt': result.get('address_proof_uploaded_at').isoformat() if result.get('address_proof_uploaded_at') else None,
+                    'incomeProofName': result.get('income_proof_name'),
+                    'incomeProofSize': result.get('income_proof_size'),
+                    'incomeProofType': result.get('income_proof_type'),
+                    'incomeProofUploadedAt': result.get('income_proof_uploaded_at').isoformat() if result.get('income_proof_uploaded_at') else None,
+                    'stepCompleted': result.get('step_completed', 0),
+                    'isCompleted': result.get('is_completed', False)
+                }
+                
+                return success_response(frontend_data, "Step 6 data retrieved successfully")
+            else:
+                return success_response({}, "No Step 6 data found for user")
+        else:
+            return error_response(f"Failed to retrieve Step 6 data: {result}", 500, 'DATABASE_ERROR')
+            
+    except Exception as e:
+        logger.error(f"Error in get_step6: {e}")
+        return error_response("Internal server error", 500, 'INTERNAL_ERROR')

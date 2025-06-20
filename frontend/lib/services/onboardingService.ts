@@ -12,6 +12,9 @@ import {
   Step4ApiData,
   Step5ApiData,
   Step5Data,
+  Step6Data,
+  Step6ApiData,
+  Step6ResponseData,
   Step5ResponseData,
   Step4ResponseData,
   Step3ResponseData,
@@ -21,7 +24,8 @@ import {
   SavedStep2Data,
   SavedStep3Data,
   SavedStep4Data,
-  SavedStep5Data
+  SavedStep5Data,
+  SavedStep6Data
 } from '@/types/onboarding';
 
 
@@ -408,6 +412,77 @@ static async getStep5Data(): Promise<SavedStep5Data | null> {
     console.error('Failed to get Step 5 data:', error);
     // Return null if no data found (user hasn't started step 5)
     if (error instanceof Error && error.message.includes('No Step 5 data found')) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+// Step 6 Methods - API Compatible
+private static toStep6ApiFormat(data: Step6Data): Step6ApiData {
+  return {
+    identityDocumentName: data.identityDocumentName,
+    identityDocumentSize: data.identityDocumentSize,
+    identityDocumentType: data.identityDocumentType,
+    identityDocumentUploadedAt: data.identityDocumentUploadedAt,
+    addressProofName: data.addressProofName,
+    addressProofSize: data.addressProofSize,
+    addressProofType: data.addressProofType,
+    addressProofUploadedAt: data.addressProofUploadedAt,
+    incomeProofName: data.incomeProofName,
+    incomeProofSize: data.incomeProofSize,
+    incomeProofType: data.incomeProofType,
+    incomeProofUploadedAt: data.incomeProofUploadedAt,
+  };
+}
+
+private static fromStep6ApiFormat(data: Step6ResponseData): SavedStep6Data {
+  return {
+    identityDocumentName: data.identityDocumentName,
+    identityDocumentSize: data.identityDocumentSize,
+    identityDocumentType: data.identityDocumentType,
+    identityDocumentUploadedAt: data.identityDocumentUploadedAt,
+    addressProofName: data.addressProofName,
+    addressProofSize: data.addressProofSize,
+    addressProofType: data.addressProofType,
+    addressProofUploadedAt: data.addressProofUploadedAt,
+    incomeProofName: data.incomeProofName,
+    incomeProofSize: data.incomeProofSize,
+    incomeProofType: data.incomeProofType,
+    incomeProofUploadedAt: data.incomeProofUploadedAt,
+    stepCompleted: data.stepCompleted,
+    isCompleted: data.isCompleted,
+  };
+}
+
+static async saveStep6Data(data: Step6Data): Promise<SavedStep6Data> {
+  try {
+    const apiData = this.toStep6ApiFormat(data);
+    
+    const response = await apiClient.post<Step6ResponseData, Step6ApiData>(
+      '/api/onboarding/step6', 
+      apiData
+    );
+    
+    return this.fromStep6ApiFormat(response);
+  } catch (error) {
+    console.error('Failed to save Step 6 data:', error);
+    throw error;
+  }
+}
+
+static async getStep6Data(): Promise<SavedStep6Data | null> {
+  try {
+    const response = await apiClient.get<Step6ResponseData>('/api/onboarding/step6');
+    
+    if (!response) {
+      return null;
+    }
+    
+    return this.fromStep6ApiFormat(response);
+  } catch (error) {
+    console.error('Failed to get Step 6 data:', error);
+    if (error instanceof Error && error.message.includes('No Step 6 data found')) {
       return null;
     }
     throw error;

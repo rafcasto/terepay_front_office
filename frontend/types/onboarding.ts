@@ -245,3 +245,48 @@ export interface SavedStep5Data extends Step5Data {
   stepCompleted: number;
   isCompleted: boolean;
 }
+
+// Step 6 interfaces - API Compatible with flattened structure
+export interface Step6Data {
+  identityDocumentName?: string;
+  identityDocumentSize?: number;
+  identityDocumentType?: string;
+  identityDocumentUploadedAt?: string;
+  addressProofName?: string;
+  addressProofSize?: number;
+  addressProofType?: string;
+  addressProofUploadedAt?: string;
+  incomeProofName?: string;
+  incomeProofSize?: number;
+  incomeProofType?: string;
+  incomeProofUploadedAt?: string;
+}
+
+export interface Step6ApiData extends ApiCompatible {
+  identityDocumentName?: string;
+  identityDocumentSize?: number;
+  identityDocumentType?: string;
+  identityDocumentUploadedAt?: string;
+  addressProofName?: string;
+  addressProofSize?: number;
+  addressProofType?: string;
+  addressProofUploadedAt?: string;
+  incomeProofName?: string;
+  incomeProofSize?: number;
+  incomeProofType?: string;
+  incomeProofUploadedAt?: string;
+}
+
+export interface Step6ResponseData extends Step6ApiData {
+  id?: number;
+  firebase_uid?: string;
+  stepCompleted: number;
+  isCompleted: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SavedStep6Data extends Step6Data {
+  stepCompleted: number;
+  isCompleted: boolean;
+}

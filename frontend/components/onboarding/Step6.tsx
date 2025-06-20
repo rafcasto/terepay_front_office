@@ -1,19 +1,50 @@
 'use client';
-import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useOnboardingStore } from '@/store/onboardingStore';
-import { useState, useEffect } from 'react';
+import { step6Schema, Step6FormData } from '@/lib/utils/validators';
+import { Navigation } from './Navigation';
 import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
-
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Step6() {
   const router = useRouter();
-  const { data, setField, markSubmitted } = useOnboardingStore();
+  const { data, setField, saveStep6ToBackend } = useOnboardingStore();
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // File state for the actual File objects (not persisted)
   const [identityDoc, setIdentityDoc] = useState<File | undefined>(undefined);
   const [addressProof, setAddressProof] = useState<File | undefined>(undefined);
   const [incomeProof, setIncomeProof] = useState<File | undefined>(undefined);
+  
+  // Load saved data and handle backend sync - SAME AS STEP 2
+  const { 
+    isLoaded, 
+    
+    isSyncing = false,
+    
+  } = useOnboardingPersistence();
 
-  // Use consistent persistence hook
-  useOnboardingPersistence();
+  const {
+    
+    formState: { errors },
+    setValue,
+    watch,
+    reset
+  } = useForm<Step6FormData>({
+    resolver: zodResolver(step6Schema),
+    defaultValues: {
+      documentsUploaded: false,
+      identityDocumentUploaded: false,
+      addressProofUploaded: false,
+      incomeProofUploaded: false,
+    },
+    mode: 'onBlur'  
+  });
+
+  // Watch form values for real-time updates - SAME AS STEP 2
+  const formValues = watch();
 
   // Initialize file states from store on mount
   useEffect(() => {
@@ -22,47 +53,102 @@ export default function Step6() {
     if (data.incomeProof) setIncomeProof(data.incomeProof);
   }, [data.document, data.addressProof, data.incomeProof]);
 
+  // Update form when store data changes - SAME AS STEP 2
+  useEffect(() => {
+    if (isLoaded && !isSyncing) {
+      const hasIdentity = !!identityDoc;
+      const hasAddress = !!addressProof;
+      const hasIncome = !!incomeProof;
+      const allUploaded = hasIdentity && hasAddress && hasIncome;
+
+      const storeData = {
+        documentsUploaded: allUploaded,
+        identityDocumentUploaded: hasIdentity,
+        addressProofUploaded: hasAddress,
+        incomeProofUploaded: hasIncome,
+      };
+
+      reset(storeData);
+      console.log('Step 6 form reset with store data:', storeData);
+    }
+  }, [identityDoc, addressProof, incomeProof, isLoaded, isSyncing, reset]);
+
+  // Update store when form values change - SAME AS STEP 2
+  const updateField = (field: keyof Step6FormData, value: Step6FormData[typeof field]) => {
+    setValue(field, value);
+  };
+
+  // File upload handlers
   const handleIdentityUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || undefined;
     setIdentityDoc(file);
     setField('document', file);
+    updateField('identityDocumentUploaded', !!file);
+    updateDocumentsUploadedStatus(file, addressProof, incomeProof);
   };
 
   const handleAddressUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || undefined;
     setAddressProof(file);
     setField('addressProof', file);
+    updateField('addressProofUploaded', !!file);
+    updateDocumentsUploadedStatus(identityDoc, file, incomeProof);
   };
 
   const handleIncomeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || undefined;
     setIncomeProof(file);
     setField('incomeProof', file);
+    updateField('incomeProofUploaded', !!file);
+    updateDocumentsUploadedStatus(identityDoc, addressProof, file);
   };
 
-  const handleSubmit = () => {
-    // Validate required documents
-    if (!identityDoc) {
-      alert('Please upload a valid ID document before proceeding.');
-      return;
-    }
-    
-    if (!addressProof) {
-      alert('Please upload proof of address before proceeding.');
-      return;
-    }
-
-    if (!incomeProof) {
-      alert('Please upload proof of income before proceeding.');
-      return;
-    }
-
-    // Mark as submitted and redirect
-    markSubmitted();
-    router.push('/onboarding/confirmation');
+  const updateDocumentsUploadedStatus = (identity?: File, address?: File, income?: File) => {
+    const allUploaded = !!identity && !!address && !!income;
+    updateField('documentsUploaded', allUploaded);
   };
 
-  const isValid = identityDoc && addressProof && incomeProof;
+  // Handle continue button - SAME PATTERN AS STEP 2
+  const handleContinue = async () => {
+    setIsSaving(true);
+
+    try {
+      // Get current form values
+      const currentValues = formValues as Step6FormData;
+      
+      // Validate that all documents are uploaded
+      if (!identityDoc) {
+        throw new Error('Please upload a valid ID document before proceeding.');
+      }
+      
+      if (!addressProof) {
+        throw new Error('Please upload proof of address before proceeding.');
+      }
+
+      if (!incomeProof) {
+        throw new Error('Please upload proof of income before proceeding.');
+      }
+
+      // Update store with current form data
+      Object.entries(currentValues).forEach(([key, value]) => {
+        updateField(key as keyof Step6FormData, value);
+      });
+
+      // Save to backend
+      await saveStep6ToBackend();
+      
+      // Navigate to confirmation on success
+      router.push('/onboarding/confirmation');
+      
+    } catch (error) {
+      console.error('Failed to save Step 6:', error);
+      throw error; // Let Navigation component handle the error display
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  
 
   return (
     <div className="space-y-6">
@@ -86,19 +172,25 @@ export default function Step6() {
               type="file"
               accept=".jpg,.jpeg,.png,.pdf"
               onChange={handleIdentityUpload}
+              disabled={isSaving || isSyncing}
               className="block w-full text-sm text-gray-500
                 file:mr-4 file:py-2 file:px-4
                 file:rounded-lg file:border-0
                 file:text-sm file:font-semibold
                 file:bg-orange-50 file:text-orange-700
-                hover:file:bg-orange-100"
+                hover:file:bg-orange-100
+                disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
           
           {identityDoc && (
             <div className="mt-2 text-sm text-green-600">
-              ✓ {identityDoc.name} uploaded
+              ✓ {identityDoc.name} uploaded ({Math.round(identityDoc.size / 1024)} KB)
             </div>
+          )}
+          
+          {errors.identityDocumentUploaded && (
+            <p className="mt-1 text-sm text-red-600">{errors.identityDocumentUploaded.message}</p>
           )}
           
           <div className="mt-2 text-xs text-gray-500">
@@ -118,19 +210,25 @@ export default function Step6() {
               type="file"
               accept=".jpg,.jpeg,.png,.pdf"
               onChange={handleAddressUpload}
+              disabled={isSaving || isSyncing}
               className="block w-full text-sm text-gray-500
                 file:mr-4 file:py-2 file:px-4
                 file:rounded-lg file:border-0
                 file:text-sm file:font-semibold
                 file:bg-orange-50 file:text-orange-700
-                hover:file:bg-orange-100"
+                hover:file:bg-orange-100
+                disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
           
           {addressProof && (
             <div className="mt-2 text-sm text-green-600">
-              ✓ {addressProof.name} uploaded
+              ✓ {addressProof.name} uploaded ({Math.round(addressProof.size / 1024)} KB)
             </div>
+          )}
+          
+          {errors.addressProofUploaded && (
+            <p className="mt-1 text-sm text-red-600">{errors.addressProofUploaded.message}</p>
           )}
           
           <div className="mt-2 text-xs text-gray-500">
@@ -150,19 +248,25 @@ export default function Step6() {
               type="file"
               accept=".jpg,.jpeg,.png,.pdf"
               onChange={handleIncomeUpload}
+              disabled={isSaving || isSyncing}
               className="block w-full text-sm text-gray-500
                 file:mr-4 file:py-2 file:px-4
                 file:rounded-lg file:border-0
                 file:text-sm file:font-semibold
                 file:bg-orange-50 file:text-orange-700
-                hover:file:bg-orange-100"
+                hover:file:bg-orange-100
+                disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
           
           {incomeProof && (
             <div className="mt-2 text-sm text-green-600">
-              ✓ {incomeProof.name} uploaded
+              ✓ {incomeProof.name} uploaded ({Math.round(incomeProof.size / 1024)} KB)
             </div>
+          )}
+          
+          {errors.incomeProofUploaded && (
+            <p className="mt-1 text-sm text-red-600">{errors.incomeProofUploaded.message}</p>
           )}
           
           <div className="mt-2 text-xs text-gray-500">
@@ -226,26 +330,22 @@ export default function Step6() {
         </div>
       </div>
 
-      <div className="flex justify-between pt-6">
-        <button
-          onClick={() => router.push('/onboarding/5')}
-          className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          Back
-        </button>
-        
-        <button
-          onClick={handleSubmit}
-          disabled={!isValid}
-          className={`px-8 py-2 rounded-lg font-semibold transition-colors ${
-            isValid
-              ? 'bg-orange-600 text-white hover:bg-orange-700'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          Submit Application
-        </button>
-      </div>
+      {/* Validation status for debugging */}
+      {errors.documentsUploaded && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-600">
+            ⚠️ {errors.documentsUploaded.message}
+          </p>
+        </div>
+      )}
+
+      {/* Use Navigation component exactly like other steps - SAME AS STEP 2 */}
+      <Navigation 
+        step={6}
+        isFinalStep={true}        
+        isLoading={isSaving || isSyncing}
+        onSubmit={handleContinue}
+      />
     </div>
   );
 }

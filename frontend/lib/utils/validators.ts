@@ -154,9 +154,19 @@ export type Step5FormData = z.infer<typeof step5Schema>;
 // Add this to your validators.ts file after step5Schema
 
 // Step 6: Document Upload Schema (we'll validate files in the component)
+// Add this to frontend/lib/utils/validators.ts
+
+// Step 6: Document Upload Schema
 export const step6Schema = z.object({
-  // File validation will be done in the component since Zod can't validate File objects directly
-  documentsUploaded: z.boolean().refine(val => val === true, 'Required documents must be uploaded'),
+  documentsUploaded: z.boolean().refine(val => val === true, 'All required documents must be uploaded'),
+  identityDocumentUploaded: z.boolean().refine(val => val === true, 'Identity document is required'),
+  addressProofUploaded: z.boolean().refine(val => val === true, 'Proof of address is required'),
+  incomeProofUploaded: z.boolean().refine(val => val === true, 'Proof of income is required'),
 });
 
 export type Step6FormData = z.infer<typeof step6Schema>;
+
+// Type guard to ensure Step 6 data is valid
+export function isStep6Valid(data: unknown): data is Step6FormData {
+  return step6Schema.safeParse(data).success;
+}

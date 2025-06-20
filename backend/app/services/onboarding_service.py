@@ -462,3 +462,107 @@ class OnboardingService:
         except Exception as e:
             logger.error(f"Failed to get Step 5 data: {e}")
             return False, str(e)
+        
+    @staticmethod
+    def save_step6_data(firebase_uid, step6_data):
+        """Save or update Step 6 onboarding data (document metadata only)."""
+        try:
+            conn = DatabaseService.get_connection()
+            cursor = conn.cursor()
+            
+            # Prepare the flattened document metadata
+            identity_doc_name = step6_data.get('identityDocumentName')
+            identity_doc_size = step6_data.get('identityDocumentSize')
+            identity_doc_type = step6_data.get('identityDocumentType')
+            identity_doc_uploaded_at = step6_data.get('identityDocumentUploadedAt')
+            
+            address_proof_name = step6_data.get('addressProofName')
+            address_proof_size = step6_data.get('addressProofSize')
+            address_proof_type = step6_data.get('addressProofType')
+            address_proof_uploaded_at = step6_data.get('addressProofUploadedAt')
+            
+            income_proof_name = step6_data.get('incomeProofName')
+            income_proof_size = step6_data.get('incomeProofSize')
+            income_proof_type = step6_data.get('incomeProofType')
+            income_proof_uploaded_at = step6_data.get('incomeProofUploadedAt')
+            
+            # Use UPSERT to handle both insert and update
+            cursor.execute("""
+                INSERT INTO onboarding_applications (
+                    firebase_uid, 
+                    identity_document_name, identity_document_size, identity_document_type, identity_document_uploaded_at,
+                    address_proof_name, address_proof_size, address_proof_type, address_proof_uploaded_at,
+                    income_proof_name, income_proof_size, income_proof_type, income_proof_uploaded_at,
+                    step_completed, is_completed
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (firebase_uid) 
+                DO UPDATE SET
+                    identity_document_name = EXCLUDED.identity_document_name,
+                    identity_document_size = EXCLUDED.identity_document_size,
+                    identity_document_type = EXCLUDED.identity_document_type,
+                    identity_document_uploaded_at = EXCLUDED.identity_document_uploaded_at,
+                    address_proof_name = EXCLUDED.address_proof_name,
+                    address_proof_size = EXCLUDED.address_proof_size,
+                    address_proof_type = EXCLUDED.address_proof_type,
+                    address_proof_uploaded_at = EXCLUDED.address_proof_uploaded_at,
+                    income_proof_name = EXCLUDED.income_proof_name,
+                    income_proof_size = EXCLUDED.income_proof_size,
+                    income_proof_type = EXCLUDED.income_proof_type,
+                    income_proof_uploaded_at = EXCLUDED.income_proof_uploaded_at,
+                    step_completed = GREATEST(onboarding_applications.step_completed, 6),
+                    is_completed = EXCLUDED.is_completed,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING id, firebase_uid, 
+                        identity_document_name, identity_document_size, identity_document_type, identity_document_uploaded_at,
+                        address_proof_name, address_proof_size, address_proof_type, address_proof_uploaded_at,
+                        income_proof_name, income_proof_size, income_proof_type, income_proof_uploaded_at,
+                        step_completed, is_completed, created_at, updated_at;
+            """, (
+                firebase_uid,
+                identity_doc_name, identity_doc_size, identity_doc_type, identity_doc_uploaded_at,
+                address_proof_name, address_proof_size, address_proof_type, address_proof_uploaded_at,
+                income_proof_name, income_proof_size, income_proof_type, income_proof_uploaded_at,
+                6, True  # Step 6 completion marks onboarding as complete
+            ))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return True, dict(result)
+            
+        except Exception as e:
+            logger.error(f"Failed to save Step 6 data: {e}")
+            return False, str(e)
+
+    @staticmethod
+    def get_step6_data(firebase_uid):
+        """Get Step 6 onboarding data for a user."""
+        try:
+            conn = DatabaseService.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT 
+                    id, firebase_uid,
+                    identity_document_name, identity_document_size, identity_document_type, identity_document_uploaded_at,
+                    address_proof_name, address_proof_size, address_proof_type, address_proof_uploaded_at,
+                    income_proof_name, income_proof_size, income_proof_type, income_proof_uploaded_at,
+                    step_completed, is_completed, created_at, updated_at
+                FROM onboarding_applications 
+                WHERE firebase_uid = %s
+            """, (firebase_uid,))
+            
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if result:
+                return True, dict(result)
+            else:
+                return True, None
+                
+        except Exception as e:
+            logger.error(f"Failed to get Step 6 data: {e}")
+            return False, str(e)

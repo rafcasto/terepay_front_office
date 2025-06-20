@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { safeSetItem } from '@/lib/utils/storageUtils';
 import { OnboardingService } from '@/lib/services/onboardingService';
-import { Step1Data, Step2Data,Step3Data,Step4Data,Step5Data } from '@/types/onboarding';
+import { Step1Data, Step2Data,Step3Data,Step4Data,Step5Data,Step6Data } from '@/types/onboarding';
 
 interface OnboardingData {
   // Personal Information (Step 1)
@@ -56,6 +56,8 @@ interface OnboardingData {
   submitted: boolean;
   
   // Backend sync status - Make these required with defaults
+  stepCompleted?: number;        // ← ADD THIS
+  isCompleted?: boolean;         // ← ADD THIS
   isSyncing: boolean;
   lastSyncedAt?: string;
   syncError?: string;
@@ -70,11 +72,13 @@ interface OnboardingStore {
   saveStep3ToBackend: () =>  Promise<void>;
   saveStep4ToBackend: () =>  Promise<void>;
   saveStep5ToBackend: () => Promise<void>;  
+  saveStep6ToBackend:() => Promise<void>;  
   loadStep1FromBackend: () => Promise<void>;
   loadStep2FromBackend: () => Promise<void>;
   loadStep3FromBackend: () => Promise<void>;
   loadStep4FromBackend: () => Promise<void>;
   loadStep5FromBackend: () => Promise<void>;
+  loadStep6FromBackend:() => Promise<void>;
   reset: () => void;
   markSubmitted: () => void;
   loadFromStorage: () => void;
@@ -741,6 +745,92 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
       });
     }
   },
+  // Add to the store implementation
+saveStep6ToBackend: async () => {
+  const state = get();
+  
+  try {
+    set((state) => ({
+      ...state,
+      data: { ...state.data, isSyncing: true, syncError: undefined }
+    }));
+
+    // Create flattened document metadata
+    const documentData: Step6Data = {};
+    
+    if (state.data.document) {
+      documentData.identityDocumentName = state.data.document.name;
+      documentData.identityDocumentSize = state.data.document.size;
+      documentData.identityDocumentType = state.data.document.type;
+      documentData.identityDocumentUploadedAt = new Date().toISOString();
+    }
+    
+    if (state.data.addressProof) {
+      documentData.addressProofName = state.data.addressProof.name;
+      documentData.addressProofSize = state.data.addressProof.size;
+      documentData.addressProofType = state.data.addressProof.type;
+      documentData.addressProofUploadedAt = new Date().toISOString();
+    }
+    
+    if (state.data.incomeProof) {
+      documentData.incomeProofName = state.data.incomeProof.name;
+      documentData.incomeProofSize = state.data.incomeProof.size;
+      documentData.incomeProofType = state.data.incomeProof.type;
+      documentData.incomeProofUploadedAt = new Date().toISOString();
+    }
+
+    const savedData = await OnboardingService.saveStep6Data(documentData);
+
+    set((state) => ({
+      ...state,
+      data: {
+        ...state.data,
+        stepCompleted: Math.max(state.data.stepCompleted || 0, savedData.stepCompleted),
+        isCompleted: savedData.isCompleted,
+        isSyncing: false,
+        lastSyncedAt: new Date().toISOString(),
+        syncError: undefined
+      }
+    }));
+
+    get().saveToStorage();
+  } catch (error) {
+    console.error('Failed to save Step 6 to backend:', error);
+    set((state) => ({
+      ...state,
+      data: {
+        ...state.data,
+        isSyncing: false,
+        syncError: error instanceof Error ? error.message : 'Unknown error occurred'
+      }
+    }));
+    throw error;
+  }
+},
+
+loadStep6FromBackend: async () => {
+  try {
+    const savedData = await OnboardingService.getStep6Data();
+    
+    if (savedData) {
+      set((state) => ({
+        ...state,
+        data: {
+          ...state.data,
+          // Note: We only store metadata, not the actual files
+          stepCompleted: Math.max(state.data.stepCompleted || 0, savedData.stepCompleted),
+          isCompleted: savedData.isCompleted,
+          lastSyncedAt: new Date().toISOString()
+        }
+      }));
+      
+      get().saveToStorage();
+    }
+  } catch (error) {
+    console.error('Failed to load Step 6 from backend:', error);
+    throw error;
+  }
+},
   reset: () => {
     const resetData: OnboardingData = { 
       submitted: false, 
