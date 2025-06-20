@@ -6,3 +6,5 @@ gunicorn
 psycopg2-binary
 sqlalchemy
 flask-sqlalchemy
+redis
+flask-caching
