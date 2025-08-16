@@ -7,6 +7,7 @@ import { step6Schema, Step6FormData } from '@/lib/utils/validators';
 import { Navigation } from './Navigation';
 import { StepLoadingState } from './StepLoadingStates';
 import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
+import { useOnboardingStatus } from '@/lib/hooks/useOnboardingStatus';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -139,8 +140,11 @@ const Step6 = () => {
       // Save to backend
       await saveStep6ToBackend();
       
-      // Navigate to confirmation on success
-      router.push('/onboarding/confirmation');
+      // Mark onboarding as complete in the store
+      setField('isCompleted', true);
+      
+      // Navigate to dashboard on success
+      router.push('/dashboard');
       
     } catch (error) {
       console.error('Failed to save Step 6:', error);

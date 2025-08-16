@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from './AuthProvider';
 import { useRecaptcha } from '@/lib/hooks/useRecaptcha';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { loginSchema, LoginFormData } from '@/lib/utils/validators';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -23,6 +24,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const { login } = useAuth();
+  const { data: onboardingData } = useOnboardingStore();
   const { executeRecaptchaAction, isRecaptchaAvailable } = useRecaptcha();
 
   const {
@@ -52,7 +54,12 @@ export function LoginForm() {
         console.log('reCAPTCHA token generated for login:', recaptchaToken);
       }
 
-      router.push('/dashboard');
+      // Route based on onboarding status
+      if (!onboardingData.isCompleted) {
+        router.push('/onboarding/1');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (err) {
       const error = err as AuthError;
       setError(error.message || 'Failed to sign in');

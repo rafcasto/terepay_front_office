@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { apiClient } from '@/lib/firebase/api';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useAuthGuard } from '@/lib/hooks/useAuthGuard';
+import { useOnboardingRedirect } from '@/lib/hooks/useOnboardingRedirect';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import LoanStatusTracker from '@/components/dashboard/LoanStatusTracker';
 interface DashboardData {
   message: string;
   user: {
@@ -21,13 +24,12 @@ interface ApiError {
 }
 
 export default function DashboardPage() {
-  useAuthGuard();
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -40,7 +42,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const testProtectedEndpoint = async () => {
     setLoading(true);
@@ -60,8 +62,8 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    void fetchDashboardData();
+  }, [fetchDashboardData]);
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -72,6 +74,11 @@ export default function DashboardPage() {
             Welcome to your authenticated dashboard!
           </p>
         </div>
+
+        {/* Loan Status Tracker */}
+        <Card className="p-6">
+          <LoanStatusTracker />
+        </Card>
 
         {/* User Info Card */}
         <Card className="p-6">

@@ -10,6 +10,7 @@ export default function OnboardingLayout({
 }: {
   children: React.ReactNode;
 }) {
+
   return (
     <ProtectedRoute>
       <section className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50">

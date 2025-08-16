@@ -4,6 +4,7 @@ import './globals.css';
 import dynamic from 'next/dynamic';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { RecaptchaProvider } from '@/lib/recaptcha/provider';
+import { RouteGuard } from '@/components/auth/RouteGuard';
 const Header = dynamic(() => import('@/components/layout/Header').then(mod => mod.Header), {
   ssr: true,
   loading: () => <div className="h-16 bg-white shadow-sm" />
@@ -27,10 +28,12 @@ export default function RootLayout({
       <body className={inter.className}>
         <RecaptchaProvider>
           <AuthProvider>
-            <div className="min-h-screen bg-gray-50">
-              <Header />
-              <main>{children}</main>
-            </div>
+            <RouteGuard>
+              <div className="min-h-screen bg-gray-50">
+                <Header />
+                <main>{children}</main>
+              </div>
+            </RouteGuard>
           </AuthProvider>
         </RecaptchaProvider>
         <Script

@@ -106,7 +106,9 @@ const loadDataFromStorage = (): OnboardingData => {
     submitted: false, 
     isSyncing: false,
     lastSyncedAt: undefined,
-    syncError: undefined
+    syncError: undefined,
+    stepCompleted: 0,
+    isCompleted: false
   };
   
   if (typeof window === 'undefined') return defaultData;
