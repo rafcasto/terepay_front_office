@@ -1,5 +1,5 @@
 'use client';
-import React, { JSX } from 'react';
+import React, { JSX, Suspense } from 'react';
 import { use } from 'react';
 import Step1 from '@/components/onboarding/Step1';
 import Step2 from '@/components/onboarding/Step2';
@@ -7,6 +7,7 @@ import Step3 from '@/components/onboarding/Step3';
 import Step4 from '@/components/onboarding/Step4';
 import Step5 from '@/components/onboarding/Step5';
 import Step6 from '@/components/onboarding/Step6';
+import { OnboardingStepSkeleton } from '@/components/onboarding/LoadingStates';
 
 export default function StepPage({ params }: { params: Promise<{ step: string }> }) {
   const { step } = use(params);
@@ -20,5 +21,9 @@ export default function StepPage({ params }: { params: Promise<{ step: string }>
     '6': <Step6 />,
   };
 
-  return steps[step] || <div>Invalid step</div>;
+  return (
+    <Suspense fallback={<OnboardingStepSkeleton />}>
+      {steps[step] || <div>Invalid step</div>}
+    </Suspense>
+  );
 }

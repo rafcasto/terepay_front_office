@@ -1,7 +1,9 @@
 import { ApiResponse, ApiError } from '@/types/api';
 import { auth } from './config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:5000';
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
 
 // Define a type for serializable data
 type SerializableData = 
@@ -77,6 +79,11 @@ class ApiClient {
         errorMessage = `HTTP ${response.status}: ${response.statusText}`;
       }
       
+      // Throw specific error for SSL issues
+      if (errorMessage.includes('SSL') || errorMessage.includes('certificate')) {
+        throw new Error('Secure connection failed. Please try again.');
+      }
+      
       throw new Error(errorMessage);
     }
 
@@ -84,14 +91,41 @@ class ApiClient {
     return data.data || (data as T);
   }
 
-  async get<T>(endpoint: string): Promise<T> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'GET',
-      headers,
-    });
+  private async executeWithRetry<T>(operation: () => Promise<T>): Promise<T> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        const err = error as Error;
+        lastError = err;
+        
+        // Don't retry if it's an auth error
+        if (err.message.includes('not authenticated')) {
+          throw err;
+        }
+        
+        // Wait before retrying
+        if (attempt < MAX_RETRIES - 1) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (attempt + 1)));
+        }
+      }
+    }
+    
+    throw lastError || new Error('Operation failed after multiple retries');
+  }
 
-    return this.handleResponse<T>(response);
+  async get<T>(endpoint: string): Promise<T> {
+    return this.executeWithRetry(async () => {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method: 'GET',
+        headers,
+      });
+
+      return this.handleResponse<T>(response);
+    });
   }
 
   // Type-safe POST with proper constraints
@@ -99,14 +133,16 @@ class ApiClient {
     endpoint: string, 
     data?: TData
   ): Promise<T> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'POST',
-      headers,
-      body: data ? JSON.stringify(data) : undefined,
-    });
+    return this.executeWithRetry(async () => {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+      });
 
-    return this.handleResponse<T>(response);
+      return this.handleResponse<T>(response);
+    });
   }
 
   // Type-safe PUT with proper constraints
@@ -114,24 +150,28 @@ class ApiClient {
     endpoint: string, 
     data?: TData
   ): Promise<T> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'PUT',
-      headers,
-      body: data ? JSON.stringify(data) : undefined,
-    });
+    return this.executeWithRetry(async () => {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method: 'PUT',
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+      });
 
-    return this.handleResponse<T>(response);
+      return this.handleResponse<T>(response);
+    });
   }
 
   async delete<T>(endpoint: string): Promise<T> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'DELETE',
-      headers,
-    });
+    return this.executeWithRetry(async () => {
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method: 'DELETE',
+        headers,
+      });
 
-    return this.handleResponse<T>(response);
+      return this.handleResponse<T>(response);
+    });
   }
 }
 

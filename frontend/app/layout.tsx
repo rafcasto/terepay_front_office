@@ -1,9 +1,13 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import dynamic from 'next/dynamic';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { RecaptchaProvider } from '@/lib/recaptcha/provider';
-import { Header } from '@/components/layout/Header';
+const Header = dynamic(() => import('@/components/layout/Header').then(mod => mod.Header), {
+  ssr: true,
+  loading: () => <div className="h-16 bg-white shadow-sm" />
+});
 import Script from 'next/script';
 import {GA_TRACKING_ID} from '../lib/utils/analytics'
 const inter = Inter({ subsets: ['latin'] });

@@ -1,6 +1,8 @@
-// File: app/onboarding/layout.tsx
+'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { StepLoadingState } from '@/components/onboarding/StepLoadingStates';
 
 // Updated onboarding layout with TerePay branding
 export default function OnboardingLayout({
@@ -9,8 +11,9 @@ export default function OnboardingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50">
-      <div className="container mx-auto px-4 py-8">
+    <ProtectedRoute>
+      <section className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50">
+        <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">            
@@ -23,7 +26,9 @@ export default function OnboardingLayout({
           {/* Main content */}
           <div className="bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden">
             <div className="p-8">
-              {children}
+              <Suspense fallback={<StepLoadingState />}>
+                {children}
+              </Suspense>
             </div>
           </div>
 
@@ -36,5 +41,6 @@ export default function OnboardingLayout({
         </div>
       </div>
     </section>
+    </ProtectedRoute>
   );
 }

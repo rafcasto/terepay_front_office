@@ -1,7 +1,7 @@
 import React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils/helpers';
-import { LoadingSpinner } from './LoadingSpinner';
+import { ButtonSkeleton } from './Skeleton';
 
 const buttonVariants = cva(
   'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer select-none',
@@ -39,13 +39,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, loading, children, disabled, ...props }, ref) => {
     return (
       <button
-        className={cn(buttonVariants({ variant, size }), className)}
+        className={cn(buttonVariants({ variant, size }), loading && 'relative overflow-hidden', className)}
         ref={ref}
         disabled={disabled || loading}
         {...props}
       >
-        {loading && <LoadingSpinner size="sm" className="mr-2" />}
-        {children}
+        {loading ? (
+          <ButtonSkeleton size={size as 'sm' | 'default' | 'lg'} className="absolute inset-0" />
+        ) : children}
       </button>
     );
   }

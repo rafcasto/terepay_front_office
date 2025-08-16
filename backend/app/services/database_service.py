@@ -7,6 +7,7 @@ from flask import current_app
 from contextlib import contextmanager
 import threading
 import time
+from app.services.cache_service import CacheService, cached
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +25,15 @@ class DatabaseService:
             if cls._connection_pool is None:
                 try:
                     cls._connection_pool = psycopg2.pool.ThreadedConnectionPool(
-                        minconn=2,          # Minimum connections to keep open
-                        maxconn=20,         # Maximum connections allowed
+                        minconn=5,          # Minimum connections to keep open
+                        maxconn=15,         # Maximum connections for 100 users
                         dsn=current_app.config['DATABASE_URL'],
                         cursor_factory=RealDictCursor,
-                        # Keep connections alive
-                        keepalives_idle=600,
-                        keepalives_interval=30,
-                        keepalives_count=3,
+                        # Connection settings optimized for Neon's pooler
+                        keepalives=1,
+                        keepalives_idle=30,
+                        keepalives_interval=10,
+                        keepalives_count=3
                     )
                     logger.info("Database connection pool initialized successfully")
                     cls._perform_health_check()
@@ -176,37 +178,30 @@ class DatabaseService:
             return False, str(e)
     
     @staticmethod
+    @cached(ttl=3600, key_prefix="db_info")  # Cache for 1 hour
     def get_database_info():
         """Get database information."""
         try:
             with DatabaseService.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                # Get database version
-                cursor.execute("SELECT version();")
-                version = cursor.fetchone()['version']
-                
-                # Get current database name
-                cursor.execute("SELECT current_database();")
-                db_name = cursor.fetchone()['current_database']
-                
-                # Get current user
-                cursor.execute("SELECT current_user;")
-                current_user = cursor.fetchone()['current_user']
-                
-                # Get table count
+                # Execute all queries in a single transaction
                 cursor.execute("""
-                    SELECT COUNT(*) as table_count 
-                    FROM information_schema.tables 
-                    WHERE table_schema = 'public';
+                    SELECT version() as version,
+                           current_database() as db_name,
+                           current_user as current_user,
+                           (SELECT COUNT(*) 
+                            FROM information_schema.tables 
+                            WHERE table_schema = 'public') as table_count;
                 """)
-                table_count = cursor.fetchone()['table_count']
+                
+                result = cursor.fetchone()
                 
             return True, {
-                'version': version,
-                'database_name': db_name,
-                'current_user': current_user,
-                'table_count': table_count
+                'version': result['version'],
+                'database_name': result['db_name'],
+                'current_user': result['current_user'],
+                'table_count': result['table_count']
             }
         except Exception as e:
             logger.error(f"Failed to get database info: {e}")

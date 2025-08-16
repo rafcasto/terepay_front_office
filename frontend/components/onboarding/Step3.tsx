@@ -6,7 +6,8 @@ import { step3Schema, Step3FormData } from '@/lib/utils/validators';
 import { Input } from '@/components/ui/Input';
 import { Navigation } from './Navigation';
 import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { StepLoadingState } from './StepLoadingStates';
 import { useState, useEffect } from 'react';
 
 export default function Step3() {
@@ -96,39 +97,18 @@ export default function Step3() {
   };
 
   // Show loading spinner during initialization OR while syncing initially - SAME AS STEP 2
-  if (isInitializing || (isSyncing && !isLoaded)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
+  if (isInitializing || !isLoaded || (isSyncing && !isLoaded)) {
+    return <StepLoadingState step={3} />;
   }
 
   // Show initialization error - SAME AS STEP 2
   if (initError) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <h3 className="text-lg font-semibold text-red-800 mb-2">Initialization Error</h3>
-            <p className="text-red-600">{initError}</p>
-          </div>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            Retry
-          </button>
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-red-800 font-medium">Initialization Error</h3>
+          <p className="text-red-700 text-sm mt-1">{initError}</p>
         </div>
-      </div>
-    );
-  }
-
-  // Don't render form until data is loaded to prevent empty field flash
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner />
       </div>
     );
   }
@@ -144,7 +124,7 @@ export default function Step3() {
       {isSyncing && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
           <div className="flex items-center">
-            <LoadingSpinner className="w-4 h-4 mr-2" />
+            <Skeleton className="h-4 w-4 mr-2" variant="circular" />
             <span className="text-sm text-blue-700">Syncing your data...</span>
           </div>
         </div>

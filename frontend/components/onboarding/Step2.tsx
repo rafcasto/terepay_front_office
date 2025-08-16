@@ -6,7 +6,8 @@ import { step2Schema, Step2FormData } from '@/lib/utils/validators';
 import { Input } from '@/components/ui/Input';
 import { Navigation } from './Navigation';
 import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { StepLoadingState } from './StepLoadingStates';
 import { useState, useEffect } from 'react';
 
 export default function Step2() {
@@ -99,14 +100,7 @@ export default function Step2() {
 
   // Show loading state - SAME AS STEP 1
   if (isInitializing || !isLoaded) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <LoadingSpinner size="lg" />
-          <p className="mt-4 text-gray-600">Loading onboarding data...</p>
-        </div>
-      </div>
-    );
+    return <StepLoadingState step={2} />;
   }
 
   // Show initialization error - SAME AS STEP 1
@@ -142,7 +136,7 @@ export default function Step2() {
         }`}>
           <div className="flex items-center space-x-2">
             {isSyncing && (
-              <LoadingSpinner size="sm" />
+              <Skeleton className="h-4 w-4" variant="circular" />
             )}
             <span className={`text-sm ${
               syncError ? 'text-red-700' : isSyncing ? 'text-blue-700' : 'text-green-700'

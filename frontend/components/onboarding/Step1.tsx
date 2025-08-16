@@ -6,7 +6,7 @@ import { step1Schema, Step1FormData } from '@/lib/utils/validators';
 import { Input } from '@/components/ui/Input';
 import { Navigation } from './Navigation';
 import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { StepLoadingState } from './StepLoadingStates';
 import { useState, useEffect } from 'react';
 
 export default function Step1() {
@@ -107,14 +107,7 @@ export default function Step1() {
 
   // Show loading state while initializing
   if (isInitializing || !isLoaded) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <LoadingSpinner size="lg" />
-          <p className="mt-4 text-gray-600">Loading onboarding data...</p>
-        </div>
-      </div>
-    );
+    return <StepLoadingState step={1} />;
   }
 
   // Show initialization error
@@ -152,7 +145,7 @@ export default function Step1() {
         }`}>
           {isSyncing && (
             <div className="flex items-center text-blue-700 text-sm">
-              <LoadingSpinner size="sm" className="mr-2" />
+                            
               Syncing data with server...
             </div>
           )}

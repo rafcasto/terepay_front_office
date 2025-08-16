@@ -1,33 +1,35 @@
 'use client';
+
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { step6Schema, Step6FormData } from '@/lib/utils/validators';
 import { Navigation } from './Navigation';
+import { StepLoadingState } from './StepLoadingStates';
 import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function Step6() {
+const Step6 = () => {
   const router = useRouter();
   const { data, setField, saveStep6ToBackend } = useOnboardingStore();
   const [isSaving, setIsSaving] = useState(false);
-  
+
+  const { 
+    isLoaded, 
+    isInitializing, 
+    initError, 
+    isSyncing,
+    syncError,
+    lastSyncedAt
+  } = useOnboardingPersistence();
+
   // File state for the actual File objects (not persisted)
   const [identityDoc, setIdentityDoc] = useState<File | undefined>(undefined);
   const [addressProof, setAddressProof] = useState<File | undefined>(undefined);
   const [incomeProof, setIncomeProof] = useState<File | undefined>(undefined);
-  
-  // Load saved data and handle backend sync - SAME AS STEP 2
-  const { 
-    isLoaded, 
-    
-    isSyncing = false,
-    
-  } = useOnboardingPersistence();
 
   const {
-    
     formState: { errors },
     setValue,
     watch,
@@ -43,7 +45,7 @@ export default function Step6() {
     mode: 'onBlur'  
   });
 
-  // Watch form values for real-time updates - SAME AS STEP 2
+  // Watch form values for real-time updates
   const formValues = watch();
 
   // Initialize file states from store on mount
@@ -53,7 +55,7 @@ export default function Step6() {
     if (data.incomeProof) setIncomeProof(data.incomeProof);
   }, [data.document, data.addressProof, data.incomeProof]);
 
-  // Update form when store data changes - SAME AS STEP 2
+  // Update form when store data changes
   useEffect(() => {
     if (isLoaded && !isSyncing) {
       const hasIdentity = !!identityDoc;
@@ -73,7 +75,7 @@ export default function Step6() {
     }
   }, [identityDoc, addressProof, incomeProof, isLoaded, isSyncing, reset]);
 
-  // Update store when form values change - SAME AS STEP 2
+  // Update store when form values change
   const updateField = (field: keyof Step6FormData, value: Step6FormData[typeof field]) => {
     setValue(field, value);
   };
@@ -108,7 +110,7 @@ export default function Step6() {
     updateField('documentsUploaded', allUploaded);
   };
 
-  // Handle continue button - SAME PATTERN AS STEP 2
+  // Handle continue button
   const handleContinue = async () => {
     setIsSaving(true);
 
@@ -148,7 +150,21 @@ export default function Step6() {
     }
   };
 
-  
+  // Show loading state or initialization error after all hooks are initialized
+  if (isInitializing || !isLoaded) {
+    return <StepLoadingState step={6} />;
+  }
+
+  if (initError) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-red-800 font-medium">Initialization Error</h3>
+          <p className="text-red-700 text-sm mt-1">{initError}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -158,6 +174,30 @@ export default function Step6() {
           Upload the required documents to complete your application. All documents must be clear, current, and in English (or accompanied by certified translations).
         </p>
       </div>
+
+      {/* Sync Status Display */}
+      {(isSyncing || syncError || lastSyncedAt) && (
+        <div className={`p-3 rounded-lg border ${
+          syncError 
+            ? 'bg-red-50 border-red-200' 
+            : isSyncing 
+              ? 'bg-blue-50 border-blue-200'
+              : 'bg-green-50 border-green-200'
+        }`}>
+          <div className="flex items-center space-x-2">
+            {isSyncing && (
+              <div className="animate-spin h-4 w-4 border-2 border-orange-500 border-t-transparent rounded-full" />
+            )}
+            <span className={`text-sm ${
+              syncError ? 'text-red-700' : isSyncing ? 'text-blue-700' : 'text-green-700'
+            }`}>
+              {syncError ? `Sync error: ${syncError}` : 
+               isSyncing ? 'Saving...' : 
+               `Last saved: ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString() : 'Never'}`}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-6">
         {/* Identity Document */}
@@ -339,7 +379,7 @@ export default function Step6() {
         </div>
       )}
 
-      {/* Use Navigation component exactly like other steps - SAME AS STEP 2 */}
+      {/* Navigation component */}
       <Navigation 
         step={6}
         isFinalStep={true}        
@@ -348,4 +388,6 @@ export default function Step6() {
       />
     </div>
   );
-}
+};
+
+export default Step6;

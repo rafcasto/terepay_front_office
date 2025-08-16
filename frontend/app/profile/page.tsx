@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/firebase/api';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { ProfileSkeleton } from '@/components/ui/Skeleton';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 interface UserProfile {
@@ -135,12 +136,7 @@ export default function ProfilePage() {
 
             {/* Show loading state */}
             {(loading || authLoading) && !profile ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <LoadingSpinner size="lg" />
-                <p className="mt-4 text-sm text-gray-600">
-                  {authLoading ? 'Authenticating...' : 'Loading profile...'}
-                </p>
-              </div>
+              <ProfileSkeleton />
             ) : profile ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

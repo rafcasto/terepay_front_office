@@ -19,10 +19,15 @@ export function Navigation({
   const [isNavigating, setIsNavigating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Simple router function that works with any Next.js version
-  const navigate = (url: string) => {
+  // Enhanced router function with loading state
+  const navigate = async (url: string) => {
     if (typeof window !== 'undefined') {
-      window.location.href = url;
+      setIsNavigating(true);
+      // Show loading state for a minimum time to prevent flash
+      await Promise.all([
+        new Promise(resolve => setTimeout(resolve, 300)),
+        window.location.assign(url)
+      ]);
     }
   };
 
@@ -32,11 +37,11 @@ export function Navigation({
     
     if (isNavigating || isSubmitting || isLoading || step <= 1) return;
     
-    setIsNavigating(true);
     try {
-      navigate(`/onboarding/${step - 1}`);
-    } finally {
-      setTimeout(() => setIsNavigating(false), 500);
+      await navigate(`/onboarding/${step - 1}`);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      setIsNavigating(false);
     }
   };
 
@@ -59,11 +64,11 @@ export function Navigation({
       }
     } else if (!isFinalStep) {
       // Default navigation behavior if no onSubmit provided
-      setIsNavigating(true);
       try {
-        navigate(`/onboarding/${step + 1}`);
-      } finally {
-        setTimeout(() => setIsNavigating(false), 500);
+        await navigate(`/onboarding/${step + 1}`);
+      } catch (error) {
+        console.error('Navigation error:', error);
+        setIsNavigating(false);
       }
     }
   };
