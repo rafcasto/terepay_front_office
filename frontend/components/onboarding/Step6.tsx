@@ -7,7 +7,6 @@ import { step6Schema, Step6FormData } from '@/lib/utils/validators';
 import { Navigation } from './Navigation';
 import { StepLoadingState } from './StepLoadingStates';
 import { useOnboardingPersistence } from '@/lib/hooks/useOnboardingPersistence';
-import { useOnboardingStatus } from '@/lib/hooks/useOnboardingStatus';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 

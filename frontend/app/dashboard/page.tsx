@@ -5,9 +5,6 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { apiClient } from '@/lib/firebase/api';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { useAuthGuard } from '@/lib/hooks/useAuthGuard';
-import { useOnboardingRedirect } from '@/lib/hooks/useOnboardingRedirect';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import LoanStatusTracker from '@/components/dashboard/LoanStatusTracker';
 interface DashboardData {
   message: string;

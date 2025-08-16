@@ -1,7 +1,6 @@
 'use client';
 
-import { useOnboardingStore } from '@/store/onboardingStore';
-import { CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { CheckCircle, Clock } from 'lucide-react';
 
 type LoanStatus = 'submitted' | 'assessment' | 'decision_pending' | 'approved' | 'declined';
 
@@ -19,8 +18,6 @@ interface LoanApplication {
 }
 
 const LoanStatusTracker = () => {
-  const { data } = useOnboardingStore();
-  
   // This would come from your backend in a real application
   const application: LoanApplication = {
     status: 'assessment',
